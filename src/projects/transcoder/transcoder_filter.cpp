@@ -23,8 +23,6 @@ bool TranscodeFilter::Configure(int32_t id,
 								const std::shared_ptr<info::Stream>& output_stream_info, std::shared_ptr<MediaTrack> output_track,
 								CompleteHandler complete_handler)
 {
-	logtd("Create a transcode filter. Track(%d -> %d). Type(%s)", input_track->GetId(), output_track->GetId(), (input_track->GetMediaType() == MediaType::Video) ? "Video" : "Audio");
-
 	_id = id;
 	_input_stream_info = input_stream_info;
 	_input_track = input_track;
@@ -101,9 +99,10 @@ bool TranscodeFilter::SendBuffer(std::shared_ptr<MediaFrame> buffer)
 		if (Create() == false)
 		{
 			logte("Failed to regenerate filter");
-
 			return false;
 		}
+
+		return true;
 	}
 
 	std::shared_lock<std::shared_mutex> lock(_mutex);
@@ -155,8 +154,8 @@ bool TranscodeFilter::IsNeedUpdate(std::shared_ptr<MediaFrame> buffer)
 	// When using an XMA scaler, resource allocation failures may occur intermittently.
 	// Avoid problems in this way until the underlying problem is resolved.
 	if (_internal->GetState() == FilterBase::State::ERROR &&
-		_input_track->GetCodecLibraryId() == cmn::MediaCodecLibraryId::XMA &&
-		_output_track->GetCodecLibraryId() == cmn::MediaCodecLibraryId::XMA)
+		_input_track->GetCodecModuleId() == cmn::MediaCodecModuleId::XMA &&
+		_output_track->GetCodecModuleId() == cmn::MediaCodecModuleId::XMA)
 	{
 		logtw("It is assumed that the XMA resource allocation failed. So, recreate the filter.");
 		return true;

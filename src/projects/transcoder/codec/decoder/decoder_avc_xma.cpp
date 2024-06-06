@@ -95,11 +95,16 @@ bool DecoderAVCxXMA::InitCodec()
 		::memcpy(_context->extradata,  reinterpret_cast<const uint8_t *>(extra_data->GetData()), _context->extradata_size);
 	}
 
+	::av_opt_set_int(_context->priv_data, "lxlnx_hwdev", _track->GetCodecDeviceId(), 0);
+
+
 	if (::avcodec_open2(_context, _codec, nullptr) < 0)
 	{
 		logte("Could not open codec: %s (%d)", ::avcodec_get_name(GetCodecID()), GetCodecID());
 		return false;
 	}
+
+	_change_format = false;
 
 	return true;
 }
@@ -172,7 +177,11 @@ void DecoderAVCxXMA::CodecThread()
 				break;
 			}
 
-			ReinitCodecIfNeed();
+			if(ReinitCodecIfNeed() == false)
+			{
+				logte("An error occurred while reinit codec");
+				break;
+			}
 
 			///////////////////////////////
 			// Send to decoder
@@ -301,11 +310,9 @@ void DecoderAVCxXMA::CodecThread()
 
 				::av_frame_unref(_frame);
 
-				SendOutputBuffer(need_to_change_notify ? TranscodeResult::FormatChanged : TranscodeResult::DataReady, std::move(decoded_frame));
+				Complete(need_to_change_notify ? TranscodeResult::FormatChanged : TranscodeResult::DataReady, std::move(decoded_frame));
 			}
 
 		}
-
-
 	}
 }

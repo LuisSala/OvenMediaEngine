@@ -55,19 +55,21 @@ public:
 	void Flush();
 	
 private:
-	void InitTrackWithSequenceHeader(std::shared_ptr<MediaTrack> &media_track);
-
 	void DropNonDecodingPackets();
+	void DetectAbnormalPackets(std::shared_ptr<MediaPacket> &packet);
 
 	bool ProcessH264AVCCStream(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet);
 	bool ProcessH264AnnexBStream(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet);
-	bool InsertH264SPSPPSAnnexB(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet);
-
+	bool InsertH264SPSPPSAnnexB(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet, bool need_aud = false);
+	
+	bool InsertH264AudAnnexB(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet);
 	bool ProcessH265AnnexBStream(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet);
+	bool ProcessH265HVCCStream(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet);
 	bool ProcessAACRawStream(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet);
 	bool ProcessAACAdtsStream(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet);
 	bool ProcessVP8Stream(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet);
 	bool ProcessOPUSStream(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet);
+	bool ProcessMP3Stream(std::shared_ptr<MediaTrack> &media_track, std::shared_ptr<MediaPacket> &media_packet);
 
 	void UpdateStatistics(std::shared_ptr<MediaTrack> &media_track,  std::shared_ptr<MediaPacket> &media_packet);
 
@@ -78,7 +80,7 @@ private:
 	MediaRouterStreamType _inout_type;
 
 	// Connector Type
-	MediaRouteApplicationConnector::ConnectorType _application_connector_type;
+	MediaRouterApplicationConnector::ConnectorType _application_connector_type;
 
 	// Stream Information
 	std::shared_ptr<info::Stream> _stream = nullptr;
@@ -99,9 +101,6 @@ private:
 	std::map<MediaTrackId, int64_t> _pts_correct;
 	// Average Pts Increment
 	std::map<MediaTrackId, int64_t> _pts_avg_inc;
-
-	// Timebase of incoming packets
-	std::map<MediaTrackId, cmn::Timebase> _incoming_timebase;
 
 	// Statistics
 	// <TrackId, Values>

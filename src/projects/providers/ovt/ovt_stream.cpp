@@ -150,7 +150,7 @@ namespace pvd
 
 	std::shared_ptr<pvd::OvtProvider> OvtStream::GetOvtProvider()
 	{
-		return std::static_pointer_cast<OvtProvider>(_application->GetParentProvider());
+		return std::static_pointer_cast<OvtProvider>(GetApplication()->GetParentProvider());
 	}
 
 	bool OvtStream::ConnectOrigin()
@@ -370,6 +370,11 @@ namespace pvd
 				{
 					playlist->SetHlsChunklistPathDepth(json_options["hlsChunklistPathDepth"].asInt());
 				}
+
+				if (json_options["enableTsPackaging"].isBool())
+				{
+					playlist->EnableTsPackaging(json_options["enableTsPackaging"].asBool());
+				}
 			}
 
 			for (size_t j = 0; j < json_playlist["renditions"].size(); j++)
@@ -461,8 +466,11 @@ namespace pvd
 				new_track->SetDecoderConfigurationRecord(decoder_config);
 			}
 
-			AddTrack(new_track);
+			// If there is an existing track with the same ID, just update the value
+			UpdateTrack(new_track);
 		}
+
+		// logti("[%s/%s(%u)] stream has been described . %s", GetApplicationTypeName(), GetName().CStr(), GetId(), payload.CStr());
 
 		SetState(State::DESCRIBED);
 		return true;

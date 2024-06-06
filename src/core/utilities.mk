@@ -199,3 +199,11 @@ $(strip \
 	$(shell $(__PKG_CONFIG_PATH) pkg-config --exists $(1); echo $$?) \
 )
 endef
+
+# Check if ldconfig exists
+# $(call chk_lib_exist,<LIBRARY_NAME>)
+define chk_lib_exist
+$(strip \
+	$(shell ldconfig -p | grep $(1) >/dev/null 2>&1; echo $$?) \
+)
+endef

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+NVIDIA_DRIVER_VERSION=
+
 ##########################################################################################
 # Environment Variables
 ##########################################################################################
@@ -23,8 +25,7 @@ else
 fi
     CURRENT=$(pwd)
 
-ENABLE_DOCKER=false
-NVIDIA_DRIVER_VERSION=
+
 
 echo "##########################################################################################"
 echo " Install NVIDIA drivers and CUDA Toolkit"
@@ -72,14 +73,14 @@ install_base_ubuntu()
     sudo add-apt-repository ppa:graphics-drivers/ppa
 
     sudo apt -y update
-
-    if [ ${ENABLE_DOCKER} == false ]; then
-            sudo apt-get install -y --no-install-recommends $(ubuntu-drivers devices | grep recommended | awk '{print $3}')
+    if [ -z "$NVIDIA_DRIVER_VERSION" ]
+    then 
+        # installation with recommended version
+        sudo ubuntu-drivers autoinstall
     else
-            echo sudo apt-get install -y --no-install-recommends nvidia-driver-${NVIDIA_DRIVER_VERSION}
-            sudo apt-get install -y --no-install-recommends nvidia-driver-${NVIDIA_DRIVER_VERSION}
-    fi
-
+        # installation with specific version
+        sudo apt-get install -y --no-install-recommends nvidia-driver-${NVIDIA_DRIVER_VERSION}
+    fi     
     sudo apt-get install -y --no-install-recommends nvidia-cuda-toolkit
 }
 
@@ -164,12 +165,10 @@ while (($#)); do
     shift
     case $OPT in
         --*) case ${OPT:2} in
-            enable_docker) ENABLE_DOCKER=true ;;
             nvidia_driver) NVIDIA_DRIVER_VERSION=$1; shift ;;
         esac;;
 
         -*) case ${OPT:1} in
-            d) ENABLE_DOCKER=true ;;
             n) NVIDIA_DRIVER_VERSION=$1; shift;;
         esac;;
     esac
@@ -191,9 +190,9 @@ else
     echo "Please refer to manual installation page"
 fi
 
+  
+ 
 
-if [ ${ENABLE_DOCKER} == false ]; then
-        echo "##########################################################################################"
-        echo " Reboot is required to use the nvidia video driver"
-        echo "##########################################################################################"
-fi
+echo "##########################################################################################"
+echo " Reboot is required to use the nvidia video driver"
+echo "##########################################################################################"

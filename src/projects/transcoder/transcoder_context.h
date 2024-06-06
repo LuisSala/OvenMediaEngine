@@ -75,6 +75,11 @@ public:
 	void SetDuration(int64_t duration)
 	{
 		_duration = duration;
+
+		if (_priv_data)
+		{
+			_priv_data->pkt_duration = duration;
+		}
 	}
 
 	void SetWidth(int32_t width)
@@ -185,13 +190,24 @@ public:
 		}
 	}
 
-	// This function should only be called before filtering (_track_id 0, 1)
-	std::shared_ptr<MediaFrame> CloneFrame()
+	// This function should only be called before filtering 
+	std::shared_ptr<MediaFrame> CloneFrame(bool deep_copy = false)
 	{
 		auto frame = std::make_shared<MediaFrame>();
 
-		if(_priv_data != nullptr){
-			frame->SetPrivData(::av_frame_clone(_priv_data));
+		if(_priv_data != nullptr)
+		{
+			// Create a new frame that references the same data as src
+			auto clone_priv_data = ::av_frame_clone(_priv_data);
+			if (clone_priv_data != nullptr)
+			{
+				if (deep_copy == true)
+				{
+					::av_frame_make_writable(clone_priv_data);
+				}
+
+				frame->SetPrivData(clone_priv_data);
+			}
 		}
 
 		frame->SetMediaType(_media_type);
@@ -227,6 +243,17 @@ public:
 	}
 	AVFrame* GetPrivData() const {
 		return _priv_data;
+	}
+
+	ov::String GetInfoString() {
+		ov::String info;
+
+		info.AppendFormat("TrackID(%d) ", GetTrackId());
+		info.AppendFormat("Type(%s) ", cmn::GetMediaTypeString(GetMediaType()).CStr());
+		info.AppendFormat("PTS(%" PRId64 ") ", GetPts());
+		info.AppendFormat("Duration(%" PRId64 ") ", GetDuration());
+
+		return info;
 	}
 
 private:

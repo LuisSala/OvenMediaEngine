@@ -14,14 +14,14 @@
 #include "llhls_private.h"
 #include "llhls_session.h"
 
-std::shared_ptr<LLHlsPublisher> LLHlsPublisher::Create(const cfg::Server &server_config, const std::shared_ptr<MediaRouteInterface> &router)
+std::shared_ptr<LLHlsPublisher> LLHlsPublisher::Create(const cfg::Server &server_config, const std::shared_ptr<MediaRouterInterface> &router)
 {
 	auto llhls = std::make_shared<LLHlsPublisher>(server_config, router);
 
 	return llhls->Start() ? llhls : nullptr;
 }
 
-LLHlsPublisher::LLHlsPublisher(const cfg::Server &server_config, const std::shared_ptr<MediaRouteInterface> &router)
+LLHlsPublisher::LLHlsPublisher(const cfg::Server &server_config, const std::shared_ptr<MediaRouterInterface> &router)
 	: Publisher(server_config, router)
 {
 	logtd("LLHlsPublisher has been create");
@@ -390,10 +390,11 @@ std::shared_ptr<LLHlsHttpInterceptor> LLHlsPublisher::CreateInterceptor()
 			}
 		}
 
-		if (stream->WaitUntilStart(10000) == false)
+		// TODO(Getroot): Improve this so that the player's first request is played immediately. This policy was temporarily changed due to a performance issue at the edge.
+		if (stream->WaitUntilStart(0) == false)
 		{
-			logtw("(%s/%s) stream has not started.", vhost_app_name.CStr(), stream_name.CStr());
-			response->SetStatusCode(http::StatusCode::NotFound);
+			logtw("(%s/%s) stream has created but not started yet", vhost_app_name.CStr(), stream_name.CStr());
+			response->SetStatusCode(http::StatusCode::Created);
 			return http::svr::NextHandler::DoNotCall;
 		}
 

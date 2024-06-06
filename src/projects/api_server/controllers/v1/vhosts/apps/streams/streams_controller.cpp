@@ -94,9 +94,14 @@ namespace api
 						{
 							properties->SetUnusedStreamDeletionTimeout(jv_properties["unusedStreamDeletionTimeoutMs"].asInt());
 						}
+
+						if (jv_properties["ignoreRtcpSRTimestamp"].isNull() == false && jv_properties["ignoreRtcpSRTimestamp"].isBool())
+						{
+							properties->EnableIgnoreRtcpSRTimestamp(jv_properties["ignoreRtcpSRTimestamp"].asBool());
+						}
 					}
 					
-					logti("Request to pull stream: %s/%s - persistent(%s) noInputFailoverTimeoutMs(%d) unusedStreamDeletionTimeoutMs(%d)", app->GetName().CStr(), stream_name.CStr(), properties->IsPersistent() ? "true" : "false", properties->GetNoInputFailoverTimeout(), properties->GetUnusedStreamDeletionTimeout());
+					logti("Request to pull stream: %s/%s - persistent(%s) noInputFailoverTimeoutMs(%d) unusedStreamDeletionTimeoutMs(%d) ignoreRtcpSRTimestamp(%s)", app->GetName().CStr(), stream_name.CStr(), properties->IsPersistent() ? "true" : "false", properties->GetNoInputFailoverTimeout(), properties->GetUnusedStreamDeletionTimeout(), properties->IsRtcpSRTimestampIgnored() ? "true" : "false");
 					for (auto &url : request_urls)
 					{
 						logti(" - %s", url.CStr());
@@ -159,6 +164,47 @@ namespace api
 												   const std::shared_ptr<mon::ApplicationMetrics> &app,
 												   const std::shared_ptr<mon::StreamMetrics> &stream, const std::vector<std::shared_ptr<mon::StreamMetrics>> &output_streams)
 		{
+			// Update llhls playlist from the LLHLS stream
+			auto orchestrator = ocst::Orchestrator::GetInstance();
+			auto app_name = app->GetName();
+			auto stream_name = stream->GetName();
+
+			auto publisher = orchestrator->GetPublisherFromType(PublisherType::LLHls);
+			if (publisher)
+			{
+				
+				for (auto &output_stream : output_streams)
+				{
+					auto llhls_stream = publisher->GetStream(app->GetId(), output_stream->GetId());
+					if (llhls_stream)
+					{
+						auto llhls_playlist = llhls_stream->GetPlaylist("llhls");
+						if (llhls_playlist)
+						{
+							output_stream->AddPlaylist(std::make_shared<info::Playlist>(*llhls_playlist));
+						}
+					}
+				}				
+			}
+
+			// update webrtc_default playlist from the WebRTC stream
+			publisher = orchestrator->GetPublisherFromType(PublisherType::Webrtc);
+			if (publisher)
+			{
+				for (auto &output_stream : output_streams)
+				{
+					auto webrtc_stream = publisher->GetStream(app->GetId(), output_stream->GetId());
+					if (webrtc_stream)
+					{
+						auto webrtc_playlist = webrtc_stream->GetPlaylist("webrtc_default");
+						if (webrtc_playlist)
+						{
+							output_stream->AddPlaylist(std::make_shared<info::Playlist>(*webrtc_playlist));
+						}
+					}
+				}
+			}
+
 			return ::serdes::JsonFromStream(stream, std::move(output_streams));
 		}
 

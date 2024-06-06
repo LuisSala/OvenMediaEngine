@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 PREFIX=/opt/ovenmediaengine
 TEMP_PATH=/tmp
 
@@ -14,11 +16,14 @@ NASM_VERSION=2.15.05
 FFMPEG_VERSION=5.0.1
 JEMALLOC_VERSION=5.3.0
 PCRE2_VERSION=10.39
-OPENH264_VERSION=2.3.0
+OPENH264_VERSION=2.4.0
 HIREDIS_VERSION=1.0.2
 NVCC_HDR_VERSION=11.1.5.2
 
 INTEL_QSV_HWACCELS=false
+NETINT_LOGAN_HWACCELS=false
+NETINT_LOGAN_PATCH_PATH=""
+NETINT_LOGAN_XCODER_COMPILE_PATH=""
 NVIDIA_NV_CODEC_HWACCELS=false
 XILINX_XMA_CODEC_HWACCELS=false
 
@@ -50,7 +55,7 @@ install_openssl()
     (DIR=${TEMP_PATH}/openssl && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://github.com/openssl/openssl/archive/openssl-${OPENSSL_VERSION}.tar.gz | tar -xz --strip-components=1 && \
+    curl -sSLf https://github.com/openssl/openssl/archive/openssl-${OPENSSL_VERSION}.tar.gz | tar -xz --strip-components=1 && \
     ./config --prefix="${PREFIX}" --openssldir="${PREFIX}" --libdir=lib -Wl,-rpath,"${PREFIX}/lib" shared no-idea no-mdc2 no-rc5 no-ec2m no-ecdh no-ecdsa no-async && \
     make -j$(nproc) && \
     sudo make install_sw && \
@@ -62,7 +67,7 @@ install_libsrtp()
     (DIR=${TEMP_PATH}/srtp && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://github.com/cisco/libsrtp/archive/v${SRTP_VERSION}.tar.gz | tar -xz --strip-components=1 && \
+    curl -sSLf https://github.com/cisco/libsrtp/archive/v${SRTP_VERSION}.tar.gz | tar -xz --strip-components=1 && \
     ./configure --prefix="${PREFIX}" --enable-openssl --with-openssl-dir="${PREFIX}" && \
     make -j$(nproc) shared_library&& \
     sudo make install && \
@@ -74,7 +79,7 @@ install_libsrt()
     (DIR=${TEMP_PATH}/srt && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://github.com/Haivision/srt/archive/v${SRT_VERSION}.tar.gz | tar -xz --strip-components=1 && \
+    curl -sSLf https://github.com/Haivision/srt/archive/v${SRT_VERSION}.tar.gz | tar -xz --strip-components=1 && \
     PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH} ./configure --prefix="${PREFIX}" --enable-shared --disable-static && \
     make -j$(nproc) && \
     sudo make install && \
@@ -86,7 +91,7 @@ install_libopus()
     (DIR=${TEMP_PATH}/opus && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://archive.mozilla.org/pub/opus/opus-${OPUS_VERSION}.tar.gz | tar -xz --strip-components=1 && \
+    curl -sSLf https://archive.mozilla.org/pub/opus/opus-${OPUS_VERSION}.tar.gz | tar -xz --strip-components=1 && \
     autoreconf -fiv && \
     ./configure --prefix="${PREFIX}" --enable-shared --disable-static && \
     make -j$(nproc) && \
@@ -100,7 +105,7 @@ install_libopenh264()
     (DIR=${TEMP_PATH}/openh264 && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://github.com/cisco/openh264/archive/refs/tags/v${OPENH264_VERSION}.tar.gz | tar -xz --strip-components=1 && \
+    curl -sSLf https://github.com/cisco/openh264/archive/refs/tags/v${OPENH264_VERSION}.tar.gz | tar -xz --strip-components=1 && \
     sed -i -e "s|PREFIX=/usr/local|PREFIX=${PREFIX}|" Makefile && \
     make OS=linux && \
     sudo make install && \
@@ -141,7 +146,7 @@ install_libvpx()
     (DIR=${TEMP_PATH}/vpx && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://codeload.github.com/webmproject/libvpx/tar.gz/v${VPX_VERSION} | tar -xz --strip-components=1 && \
+    curl -sSLf https://codeload.github.com/webmproject/libvpx/tar.gz/v${VPX_VERSION} | tar -xz --strip-components=1 && \
     ./configure --prefix="${PREFIX}" --enable-vp8 --enable-pic --enable-shared --disable-static --disable-vp9 --disable-debug --disable-examples --disable-docs --disable-install-bins ${ADDITIONAL_FLAGS} && \
     make -j$(nproc) && \
     sudo make install && \
@@ -153,7 +158,7 @@ install_fdk_aac()
     (DIR=${TEMP_PATH}/aac && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://github.com/mstorsjo/fdk-aac/archive/v${FDKAAC_VERSION}.tar.gz | tar -xz --strip-components=1 && \
+    curl -sSLf https://github.com/mstorsjo/fdk-aac/archive/v${FDKAAC_VERSION}.tar.gz | tar -xz --strip-components=1 && \
     autoreconf -fiv && \
     ./configure --prefix="${PREFIX}" --enable-shared --disable-static --datadir=/tmp/aac && \
     make -j$(nproc) && \
@@ -167,7 +172,7 @@ install_nasm()
     (DIR=${TEMP_PATH}/nasm && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://github.com/netwide-assembler/nasm/archive/refs/tags/nasm-${NASM_VERSION}.tar.gz | tar -xz --strip-components=1 && \
+    curl -sSLf https://github.com/netwide-assembler/nasm/archive/refs/tags/nasm-${NASM_VERSION}.tar.gz | tar -xz --strip-components=1 && \
 	./autogen.sh && \
     ./configure --prefix="${PREFIX}" && \
     make -j$(nproc) && \
@@ -183,7 +188,7 @@ install_nvcc_hdr() {
         mkdir -p ${DIR} && \
         cd ${DIR} && \
         export DESTDIR=${PREFIX} && \
-        curl -sLf https://github.com/FFmpeg/nv-codec-headers/releases/download/n${NVCC_HDR_VERSION}/nv-codec-headers-${NVCC_HDR_VERSION}.tar.gz | tar -xz --strip-components=1 && sed -i 's|PREFIX.*=\(.*\)|PREFIX =|g' Makefile && \
+        curl -sSLf https://github.com/FFmpeg/nv-codec-headers/releases/download/n${NVCC_HDR_VERSION}/nv-codec-headers-${NVCC_HDR_VERSION}.tar.gz | tar -xz --strip-components=1 && sed -i 's|PREFIX.*=\(.*\)|PREFIX =|g' Makefile && \
         sudo make install ) || fail_exit "nvcc_headers"
     fi
 }
@@ -215,7 +220,7 @@ install_ffmpeg()
 
     # If there is an enable-qsv option, add libmfx
     if [ "$INTEL_QSV_HWACCELS" = true ] ; then
-        ADDI_LIBS+=" --enable-libmfx"
+        ADDI_LIBS+=" --enable-libmfx "
         ADDI_ENCODER+=",h264_qsv,hevc_qsv"
         ADDI_DECODER+=",vp8_qsv,h264_qsv,hevc_qsv"
         ADDI_HWACCEL=""
@@ -224,27 +229,28 @@ install_ffmpeg()
 
     # If there is an enable-nvc option, add nvcodec
     if [ "$NVIDIA_NV_CODEC_HWACCELS" = true ] ; then
-        ADDI_CFLAGS+="-I/usr/local/cuda/include"
-        ADDI_LDFLAGS="-L/usr/local/cuda/lib64"
+        ADDI_CFLAGS+="-I/usr/local/cuda/include "
+        ADDI_LDFLAGS="-L/usr/local/cuda/lib64 "
         ADDI_LICENSE+=" --enable-nonfree "
-        ADDI_LIBS+=" --enable-cuda-nvcc --enable-cuda-llvm --enable-libnpp --enable-nvenc --enable-nvdec --enable-ffnvcodec --enable-cuvid"
-        ADDI_HWACCEL="--enable-hwaccel=cuda,cuvid"
+        ADDI_LIBS+=" --enable-cuda-nvcc --enable-cuda-llvm --enable-libnpp --enable-nvenc --enable-nvdec --enable-ffnvcodec --enable-cuvid "
+        ADDI_HWACCEL="--enable-hwaccel=cuda,cuvid "
         ADDI_ENCODER+=",h264_nvenc,hevc_nvenc"
         ADDI_DECODER+=",h264_nvdec,hevc_nvdec,h264_cuvid,hevc_cuvid"
-        ADDI_FILTERS+=",scale_cuda,hwdownload,hwupload,hwupload_cuda"
+        ADDI_FILTERS+=",scale_cuda,scale_npp,hwdownload,hwupload,hwupload_cuda"
 
         PATH=$PATH:/usr/local/nvidia/bin:/usr/local/cuda/bin
     fi
 
-    # If there is an enable-xma option, add xlinkx sdk
+    # If there is an enable-xma option, add xilinx video sdk 3.0
     if [ "$XILINX_XMA_CODEC_HWACCELS" = true ] ; then
-        FFMPEG_DOWNLOAD_URL=https://github.com/Xilinx/app-ffmpeg4-xma/archive/refs/tags/v4.4.2.tar.gz
+        FFMPEG_DOWNLOAD_URL=https://github.com/Xilinx/app-ffmpeg4-xma.git
         ADDI_ENCODER+=",h264_vcu_mpsoc,hevc_vcu_mpsoc"
         ADDI_DECODER+=",h264_vcu_mpsoc,hevc_vcu_mpsoc"
         ADDI_FILTERS+=",multiscale_xma,xvbm_convert"
-        ADDI_LIBS+=" --enable-libxma2api --enable-libxvbm --enable-libxrm "
-        ADDI_CFLAGS+=" $(pkg-config --cflags libxma2api libxma2plugin xvbm libxrm) "
-        ADDI_LDFLAGS+=" $(pkg-config --libs  libxma2api libxma2plugin xvbm libxrm) -Wl,-rpath,/opt/xilinx/xrt/lib -Wl,-rpath,/opt/xilinx/xrm/lib"
+        ADDI_LIBS+=" --enable-x86asm --enable-libxma2api --enable-libxvbm --enable-libxrm --enable-cross-compile "
+        ADDI_CFLAGS+=" -I/opt/xilinx/xrt/include/xma2 "
+        ADDI_LDFLAGS+="-L/opt/xilinx/xrt/lib  -Wl,-rpath,/opt/xilinx/xrt/lib -Wl,-rpath,/opt/xilinx/xrm/lib "
+        ADDI_EXTRA_LIBS+="--extra-libs=-lxma2api --extra-libs=-lxrt_core --extra-libs=-lxrt_coreutil --extra-libs=-lpthread --extra-libs=-ldl "
     fi
 
     # Options are added by external scripts.
@@ -268,10 +274,34 @@ install_ffmpeg()
     DIR=${TEMP_PATH}/ffmpeg
 
     # Download
-    (rm -rf ${DIR}  && mkdir -p ${DIR} && \
-    cd ${DIR} && \
-    curl -sLf ${FFMPEG_DOWNLOAD_URL} | tar -xz --strip-components=1 ) || fail_exit "ffmpeg"
-
+    if [ "$XILINX_XMA_CODEC_HWACCELS" = false ] ; then
+	    (rm -rf ${DIR}  && mkdir -p ${DIR} && \
+	    cd ${DIR} && \
+	    curl -sSLf ${FFMPEG_DOWNLOAD_URL} | tar -xz --strip-components=1 ) || fail_exit "ffmpeg"
+    else
+        # Download FFmpeg for xilinx video sdk 3.0
+	    (rm -rf ${DIR}  && mkdir -p ${DIR} && \
+	    git clone --depth=1 --branch U30_GA_3 https://github.com/Xilinx/app-ffmpeg4-xma.git ${DIR}) || fail_exit "ffmpeg"	
+    fi
+	
+    # If there is an enable-nilogan option, add patch from libxcoder_logan-path 
+    if [ "$NETINT_LOGAN_HWACCELS" = true ] ; then		
+        echo "we are applying the patch founded in $NETINT_LOGAN_PATCH_PATH"
+        patch_name=$(basename $NETINT_LOGAN_PATCH_PATH)
+        cp $NETINT_LOGAN_PATCH_PATH ${DIR}		
+        cd ${DIR} && patch -t -p 1 < $patch_name
+        if [ "$NETINT_LOGAN_XCODER_COMPILE_PATH" != "" ] ; then
+            cd $NETINT_LOGAN_XCODER_COMPILE_PATH && bash build.sh && ldconfig #the compilation of libxcoder_logan can be done before
+        fi		
+        ADDI_LIBS+=" --enable-libxcoder_logan --enable-ni_logan --enable-avfilter  --enable-pthreads "
+        ADDI_ENCODER+=",h264_ni_logan,h265_ni_logan"
+        ADDI_DECODER+=",h264_ni_logan,h265_ni_logan"
+        ADDI_LICENSE+=" --enable-gpl --enable-nonfree "
+        ADDI_LDFLAGS=" -lm -ldl"
+        ADDI_FILTERS+=",hwdownload,hwupload,hwupload_ni_logan"
+        #ADDI_EXTRA_LIBS="-lpthread"
+    fi
+    
     # Patch for Enterprise
     if [[ "$(type -t install_patch_ffmpeg)"  == 'function' ]];
     then
@@ -285,16 +315,17 @@ install_ffmpeg()
     --extra-ldflags="-L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib ${ADDI_LDFLAGS}" \
     --extra-libs=-ldl ${ADDI_EXTRA_LIBS} \
     ${ADDI_LICENSE} \
-    --disable-everything --disable-programs --disable-avdevice --disable-dct --disable-dwt --disable-lsp --disable-lzo --disable-rdft --disable-faan --disable-pixelutils \
-    --enable-shared --enable-zlib --enable-libopus --enable-libvpx --enable-libfdk_aac --enable-libopenh264 --enable-openssl --enable-network --enable-libsrt ${ADDI_LIBS} \
+    --disable-everything --disable-programs --disable-avdevice --disable-dwt --disable-lsp --disable-lzo --disable-faan --disable-pixelutils \
+    --enable-shared --enable-zlib --enable-libopus --enable-libvpx --enable-libfdk_aac --enable-libopenh264 --enable-openssl --enable-network --enable-libsrt --enable-dct --enable-rdft  ${ADDI_LIBS} \
     ${ADDI_HWACCEL} \
+    --enable-ffmpeg \
     --enable-encoder=libvpx_vp8,libopus,libfdk_aac,libopenh264,mjpeg,png${ADDI_ENCODER} \
-    --enable-decoder=aac,aac_latm,aac_fixed,h264,hevc,opus,vp8${ADDI_DECODER} \
+    --enable-decoder=aac,aac_latm,aac_fixed,mp3float,mp3,h264,hevc,opus,vp8${ADDI_DECODER} \
     --enable-parser=aac,aac_latm,aac_fixed,h264,hevc,opus,vp8 \
     --enable-protocol=tcp,udp,rtp,file,rtmp,tls,rtmps,libsrt \
-    --enable-demuxer=rtsp,flv,live_flv,mp4 \
+    --enable-demuxer=rtsp,flv,live_flv,mp4,mp3 \
     --enable-muxer=mp4,webm,mpegts,flv,mpjpeg \
-    --enable-filter=asetnsamples,aresample,aformat,channelmap,channelsplit,scale,transpose,fps,settb,asettb,format${ADDI_FILTERS} && \
+    --enable-filter=asetnsamples,aresample,aformat,channelmap,channelsplit,scale,transpose,fps,settb,asettb,crop,format${ADDI_FILTERS} && \
     make -j$(nproc) && \
     sudo make install && \
     sudo rm -rf ${PREFIX}/share && \
@@ -308,7 +339,7 @@ install_jemalloc()
     (DIR=${TEMP_PATH}/jemalloc && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2 | tar -jx --strip-components=1 && \
+    curl -sSLf https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2 | tar -jx --strip-components=1 && \
     ./configure --prefix="${PREFIX}" && \
     make -j$(nproc) && \
     sudo make install_include install_lib && \
@@ -320,7 +351,7 @@ install_libpcre2()
     (DIR=${TEMP_PATH}/libpcre2 && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://github.com/PhilipHazel/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz | tar -xz --strip-components=1 && \
+    curl -sSLf https://github.com/PhilipHazel/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz | tar -xz --strip-components=1 && \
     ./configure --prefix="${PREFIX}" \
     --disable-static \
         --enable-jit=auto && \
@@ -334,7 +365,7 @@ install_hiredis()
 	(DIR=${TEMP_PATH}/hiredis && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://github.com/redis/hiredis/archive/refs/tags/v${HIREDIS_VERSION}.tar.gz | tar -xz --strip-components=1 && \
+    curl -sSLf https://github.com/redis/hiredis/archive/refs/tags/v${HIREDIS_VERSION}.tar.gz | tar -xz --strip-components=1 && \
     make -j$(nproc) && \
     sudo make install PREFIX="${PREFIX}" && \
     rm -rf ${DIR} ) || fail_exit "hiredis"
@@ -342,7 +373,7 @@ install_hiredis()
 
 install_base_ubuntu()
 {
-    sudo apt install -y build-essential autoconf libtool zlib1g-dev tclsh cmake curl pkg-config bc uuid-dev
+    sudo apt-get install -y build-essential autoconf libtool zlib1g-dev tclsh cmake curl pkg-config bc uuid-dev
 }
 
 install_base_fedora()
@@ -388,7 +419,7 @@ install_ovenmediaengine()
     (DIR=${TEMP_PATH}/ome && \
     mkdir -p ${DIR} && \
     cd ${DIR} && \
-    curl -sLf https://github.com/AirenSoft/OvenMediaEngine/archive/${OME_VERSION}.tar.gz | tar -xz --strip-components=1 && \
+    curl -sSLf https://github.com/AirenSoft/OvenMediaEngine/archive/${OME_VERSION}.tar.gz | tar -xz --strip-components=1 && \
     cd src && \
     make release && \
     sudo make install && \
@@ -404,7 +435,7 @@ fail_exit()
 
 check_version()
 {
-    if [[ "${OSNAME}" == "Ubuntu" && "${OSVERSION}" != "18" && "${OSVERSION}.${OSMINORVERSION}" != "20.04" ]]; then
+    if [[ "${OSNAME}" == "Ubuntu" && "${OSVERSION}" != "18" && "${OSVERSION}.${OSMINORVERSION}" != "20.04" && "${OSVERSION}.${OSMINORVERSION}" != "22.04" ]]; then
         proceed_yn
     fi
 
@@ -427,7 +458,7 @@ check_version()
 
 proceed_yn()
 {
-    read -p "This program [$0] is tested on [Ubuntu 18/20.04, CentOS 7/8 q, Fedora 28, Amazon Linux 2]
+    read -p "This program [$0] is tested on [Ubuntu 18/20.04/22.04, CentOS 7/8 q, Fedora 28, Amazon Linux 2]
 Do you want to continue [y/N] ? " ANS
     if [[ "${ANS}" != "y" && "$ANS" != "yes" ]]; then
         cd ${CURRENT}
@@ -451,6 +482,18 @@ case $i in
     INTEL_QSV_HWACCELS=true  
     shift
     ;;
+	--enable-nilogan)
+    NETINT_LOGAN_HWACCELS=true 	
+    shift
+    ;;	
+	--nilogan-path=*)
+    NETINT_LOGAN_PATCH_PATH="${i#*=}" 
+    shift
+    ;;
+	--nilogan-xocder-compile-path=*)
+    NETINT_LOGAN_XCODER_COMPILE_PATH="${i#*=}" 
+    shift
+    ;;
     --enable-nvc)
     NVIDIA_NV_CODEC_HWACCELS=true
     shift
@@ -464,6 +507,15 @@ case $i in
     ;;
 esac
 done
+
+
+if [ "$NETINT_LOGAN_HWACCELS" = true ] ; then	
+	if [[ ! -f $NETINT_LOGAN_PATCH_PATH ]]; then
+		echo "You have activated netint logan encoding but the patch path is not found"
+		exit 1
+	fi	
+fi
+
 
 if [ "${OSNAME}" == "Ubuntu" ]; then
     check_version

@@ -65,8 +65,8 @@ public:
 
 	uint64_t GetMaxChunkDurationMS() const;
 
-	std::tuple<RequestResult, std::shared_ptr<const ov::Data>> GetMasterPlaylist(const ov::String &file_name, const ov::String &chunk_query_string, bool gzip, bool legacy, bool include_path=true);
-	std::tuple<RequestResult, std::shared_ptr<const ov::Data>> GetChunklist(const ov::String &chunk_query_string, const int32_t &track_id, int64_t msn, int64_t psn, bool skip, bool gzip, bool legacy) const;
+	std::tuple<RequestResult, std::shared_ptr<const ov::Data>> GetMasterPlaylist(const ov::String &file_name, const ov::String &chunk_query_string, bool gzip, bool legacy, bool rewind, bool include_path=true);
+	std::tuple<RequestResult, std::shared_ptr<const ov::Data>> GetChunklist(const ov::String &chunk_query_string, const int32_t &track_id, int64_t msn, int64_t psn, bool skip, bool gzip, bool legacy, bool rewind) const;
 	std::tuple<RequestResult, std::shared_ptr<ov::Data>> GetInitializationSegment(const int32_t &track_id) const;
 	std::tuple<RequestResult, std::shared_ptr<ov::Data>> GetSegment(const int32_t &track_id, const int64_t &segment_number) const;
 	std::tuple<RequestResult, std::shared_ptr<ov::Data>> GetChunk(const int32_t &track_id, const int64_t &segment_number, const int64_t &chunk_number) const;
@@ -91,8 +91,8 @@ private:
 
 	// bmff::FMp4StorageObserver implementation
 	void OnFMp4StorageInitialized(const int32_t &track_id) override;
-	void OnMediaSegmentUpdated(const int32_t &track_id, const uint32_t &segment_number) override;
-	void OnMediaChunkUpdated(const int32_t &track_id, const uint32_t &segment_number, const uint32_t &chunk_number) override;
+	void OnMediaSegmentCreated(const int32_t &track_id, const uint32_t &segment_number) override;
+	void OnMediaChunkUpdated(const int32_t &track_id, const uint32_t &segment_number, const uint32_t &chunk_number, bool last_chunk) override;
 	void OnMediaSegmentDeleted(const int32_t &track_id, const uint32_t &segment_number) override;
 
 	// Create and Get fMP4 packager and storage with track info, storage and packager_config
@@ -111,7 +111,7 @@ private:
 	ov::String GetInitializationSegmentName(const int32_t &track_id) const;
 	ov::String GetSegmentName(const int32_t &track_id, const int64_t &segment_number) const;
 	ov::String GetPartialSegmentName(const int32_t &track_id, const int64_t &segment_number, const int64_t &partial_number) const;
-	ov::String GetNextPartialSegmentName(const int32_t &track_id, const int64_t &segment_number, const int64_t &partial_number) const;
+	ov::String GetNextPartialSegmentName(const int32_t &track_id, const int64_t &segment_number, const int64_t &partial_number, bool last_chunk) const;
 
 	bool AppendMediaPacket(const std::shared_ptr<MediaPacket> &media_packet);
 
@@ -146,6 +146,7 @@ private:
 	uint64_t _min_chunk_duration_ms = std::numeric_limits<uint64_t>::max();
 
 	double _configured_part_hold_back = 0;
+	bool _preload_hint_enabled = true;
 
 	std::map<ov::String, std::shared_ptr<LLHlsMasterPlaylist>> _master_playlists;
 	std::mutex _master_playlists_lock;
@@ -174,4 +175,8 @@ private:
 
 	bmff::CencProperty _cenc_property;
 	ov::String _key_uri; // string, only for FairPlay
+
+	// PROGRAM-DATE-TIME
+	bool _first_chunk = true;
+	int64_t _wallclock_offset_ms = 0;
 };

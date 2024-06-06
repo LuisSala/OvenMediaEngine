@@ -24,17 +24,32 @@ public:
 	MediaTrack(const MediaTrack &media_track);
 	~MediaTrack();
 
+	bool Update(const MediaTrack &media_track);
+
 	// Track ID
 	void SetId(uint32_t id);
 	uint32_t GetId() const;
 	
-	// Codec 
+	// Codec ID
 	void SetCodecId(cmn::MediaCodecId id);
 	cmn::MediaCodecId GetCodecId() const;
 
-	// Specific Codec Library ID
-	void SetCodecLibraryId(cmn::MediaCodecLibraryId id);
-	cmn::MediaCodecLibraryId GetCodecLibraryId() const;
+	// Codec Module ID (Used for transcoder)
+	void SetCodecModuleId(cmn::MediaCodecModuleId id);
+	cmn::MediaCodecModuleId GetCodecModuleId() const;
+
+	// When using multiple hardware acceleration devices, 
+	// this is the value to determine the device. (Used for transcoder)
+	void SetCodecDeviceId(int32_t id);
+	int32_t GetCodecDeviceId() const;
+
+	// This is a candidate list of decoder/encoder modules. (Used for transcoder)
+	// It is set from 
+	// 	- OutputProfiles.HWAccels.Encoder.Modules
+	//	- OutputProfiles.HWAccels.Decoder.Modules
+	// 	- OutputProfiles.OutputProfile.Encodes.Video.Modules
+	void SetCodecModules(const ov::String modules);
+	ov::String GetCodecModules() const;
 
 	// Variant Name (used for rendition of playlist)
 	void SetVariantName(const ov::String &name);
@@ -78,6 +93,10 @@ public:
 	void SetBitrateByMeasured(int32_t bitrate);
 	int32_t GetBitrateByMeasured() const;
 
+	// Bitrate last second (Set by measured)
+	void SetBitrateLastSecond(int32_t bitrate);
+	int32_t GetBitrateLastSecond() const;
+
 	// Bitrate (Set by user)
 	void SetBitrateByConfig(int32_t bitrate);
 	int32_t GetBitrateByConfig() const;
@@ -116,7 +135,9 @@ protected:
 
 	// Codec
 	cmn::MediaCodecId _codec_id;
-	cmn::MediaCodecLibraryId _codec_library_id;
+	cmn::MediaCodecModuleId _codec_module_id;
+	int32_t _codec_device_id;
+	ov::String _codec_modules;
 
 	// Variant Name : Original encoder profile that made this track 
 	// from <OutputProfile><Encodes>(<Video> || <Audio> || <Image>)<Name>
@@ -136,6 +157,8 @@ protected:
 	int32_t _bitrate;
 	// Bitrate (Set by user)
 	int32_t _bitrate_conf;
+	// Bitrate last one second
+	int32_t _bitrate_last_second;
 	
 	// Bypass
 	bool _byass;
@@ -150,11 +173,17 @@ protected:
 
 	// First frame received time
 	ov::StopWatch _clock_from_first_frame_received;
+	ov::StopWatch _timer_one_second;
 
 	// Statistics
 	uint64_t _total_frame_count = 0;
 	uint64_t _total_frame_bytes = 0;
+	uint64_t _total_key_frame_count = 0;
 	int32_t _key_frame_interval_count = 0;
+	int32_t _delta_frame_count_since_last_key_frame = 0;
+
+	uint64_t _last_seconds_frame_count = 0;
+	uint64_t _last_seconds_frame_bytes = 0;
 
 	// Validity
 	bool _is_valid = false;

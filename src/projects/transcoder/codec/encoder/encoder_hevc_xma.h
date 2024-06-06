@@ -25,7 +25,7 @@ public:
 
 	int GetSupportedFormat() const noexcept override
 	{
-#ifdef XMA_ENABLED
+#ifdef HWACCELS_XMA_ENABLED
 		return AV_PIX_FMT_XVBM_8;
 #else	
 		// Unknown colorspace	
@@ -40,8 +40,6 @@ public:
 	}
 
 	bool Configure(std::shared_ptr<MediaTrack> context) override;
-
-	void CodecThread() override;
 
 private:
 	bool SetCodecParams() override;

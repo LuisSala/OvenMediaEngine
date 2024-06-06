@@ -22,7 +22,7 @@ namespace pvd
 {
 	class Provider;
 	
-	class Application : public info::Application, public MediaRouteApplicationConnector
+	class Application : public info::Application, public MediaRouterApplicationConnector
 	{
 	public:
 		enum class ApplicationState : int8_t
@@ -43,6 +43,7 @@ namespace pvd
 
 		virtual bool AddStream(const std::shared_ptr<Stream> &stream);
 		virtual bool DeleteStream(const std::shared_ptr<Stream> &stream);
+		virtual bool UpdateStream(const std::shared_ptr<Stream> &stream);
 		virtual bool DeleteAllStreams();
 
 		const char* GetApplicationTypeName() final;

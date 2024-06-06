@@ -4,7 +4,7 @@
 
 The OME Docker Launcher is a tool that simplifies the process of deploying and managing the OvenMediaEngine (OME) application using Docker containers. This tool can be used by developers and system administrators who want to quickly deploy and test the OME application in a Docker environment.
 
-<figure><img src="../.gitbook/assets/image.png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../.gitbook/assets/image (1).png" alt=""><figcaption></figcaption></figure>
 
 The OME Docker Launcher provides a set of commands that allow users to easily manage the OME Docker container. These commands include:
 
@@ -30,6 +30,12 @@ OME Docker Launcher has not been tested in various environments yet. Therefore, 
 ## Installation
 
 Run the following command in your Linux shell.
+
+```
+curl -OL 'https://raw.githubusercontent.com/AirenSoft/OvenMediaEngine/master/misc/ome_docker_launcher.sh' && chmod +x ome_docker_launcher.sh
+```
+
+Below is an example of execution:
 
 ```bash
 $ curl -OL 'https://raw.githubusercontent.com/AirenSoft/OvenMediaEngine/master/misc/ome_docker_launcher.sh' && chmod +x ome_docker_launcher.sh
@@ -118,6 +124,14 @@ If you want to start OvenMediaEngine, please run ./ome_docker_launcher.sh start
 
 If you want to change the configuration of OME, you can edit the `/usr/share/ovenmediaengine/conf/Server.xml` file. This file contains the server configuration settings for OME, such as the server's IP address, port, and SSL settings. Once you have made changes to this file, you will need to restart the OME Docker container for the changes to take effect. You can do this by running the `restart` command provided by the OME Docker Launcher.
 
+#### Certificate Installation
+
+To install a certificate in OvenMediaEngine, copy the certificate files to /usr/share/ovenmediaengine/conf with the following names:
+
+<table><thead><tr><th width="219">Type</th><th>File name</th></tr></thead><tbody><tr><td>Certificate</td><td>cert.crt</td></tr><tr><td>Private Key</td><td>cert.key</td></tr><tr><td>CA Bundle</td><td>cert.ca-bundle</td></tr></tbody></table>
+
+If you want to change the file names, you can modify Server.xml.
+
 ### `start`
 
 Once the `setup` phase is complete, you can use the `start` command to run the OME Docker container. The `start` command creates and starts the Docker container, enabling the OME application to receive stream packets using protocols such as RTMP and SRT. Before running the `start` command, ensure that the necessary configuration files have been copied to the host's `/usr/share/ovenmediaengine` directory by running the `setup` command.
@@ -152,11 +166,38 @@ $ ./ome_docker_launcher.sh start
 ```
 
 {% hint style="info" %}
+When running the OME Docker Launcher, you can specify the IP to be used as an ICE Candidate by using the `OME_HOST_IP` environment variable. For instance, specifying the `OME_HOST_IP` as shown below will propagate the ICE Candidate to that particular address.
+
+
+
+```sh
+$ OME_HOST_IP=1.2.3.4 ./ome_docker_launcher.sh start
+...
+• OvenMediaEngine is started successfully!
+
+$ tail -f /usr/share/ovenmediaengine/logs/ovenmediaengine.log
+...
+[2023-11-01 00:00:00.000] I [OvenMediaEngine:1] ICE | ice_port_manager.cpp:305  | ICE candidate found: 1.2.3.4:40000
+...
+```
+{% endhint %}
+
+{% hint style="info" %}
 The OME Docker Launcher automatically detects a list of port numbers specified in the `Server.xml` file and passes them to the Docker `-p` option. However, if you use the `include` attribute inside the `<Providers>` or `<Publishers>` element, the launcher may not detect them correctly.
 {% endhint %}
 
 {% hint style="info" %}
-If you have used an environment variable form like `${env:<ENV_NAME>}`, the OME Docker Launcher resolves the value of the `<ENV_NAME>` environment variable in the current shell. This enables you to dynamically set configuration values using environment variables.
+If you have declared the following environment variable in the shell where you run the OME Docker Launcher, this value will be used to bind the port and passed into the Docker container. This enables you to dynamically set configuration values using environment variables.
+
+```
+OME_HOST_IP
+OME_RTMP_PROV_PORT
+OME_WEBRTC_CANDIDATE_IP
+OME_WEBRTC_CANDIDATE_PORT
+OME_WEBRTC_SIGNALLING_PORT
+OME_WEBRTC_SIGNALLING_TLS_PORT
+OME_WEBRTC_TCP_RELAY_PORT
+```
 {% endhint %}
 
 ### `sh`

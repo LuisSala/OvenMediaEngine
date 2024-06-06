@@ -786,6 +786,14 @@ namespace ocst
 					logte("Could not create application for the stream: [%s/%s]", vhost_app_name.CStr(), stream_name.CStr());
 					return false;
 				}
+
+				app_info = OrchestratorInternal::GetApplicationInfo(vhost_app_name);
+				if (app_info.IsValid() == false)
+				{
+					// MUST NOT HAPPEN
+					logte("Could not find created application for the stream: [%s/%s]", vhost_app_name.CStr(), stream_name.CStr());
+					return false;
+				}
 			}
 
 			if (matched_origin->forward_query_params && request_from->HasQueryString())
@@ -816,6 +824,7 @@ namespace ocst
 		properties->EnablePersistent(matched_origin->persistent);
 		properties->EnableFailback(matched_origin->failback);
 		properties->EnableRelay(matched_origin->relay);
+		properties->EnableIgnoreRtcpSRTimestamp(matched_origin->ignore_rtcp_sr_timestamp);
 		properties->EnableFromOriginMapStore(false);
 
 		auto stream = provider_module->PullStream(request_from, app_info, stream_name, url_list, offset, properties);
@@ -1142,4 +1151,39 @@ namespace ocst
 
 		return CommonErrorCode::SUCCESS;
 	}
+
+	bool Orchestrator::CheckIfStreamExist(const info::VHostAppName &vhost_app_name, const ov::String &stream_name)
+	{
+		auto scoped_lock = std::scoped_lock(_virtual_host_map_mutex);
+		auto stream = GetProviderStream(vhost_app_name, stream_name);
+		if (stream == nullptr)
+		{
+			// Error
+			return false;
+		}
+
+		return true;
+	}
+
+	// Mirror Stream
+	CommonErrorCode Orchestrator::MirrorStream(std::shared_ptr<MediaRouterStreamTap> &stream_tap, const info::VHostAppName &vhost_app_name, const ov::String &stream_name, MediaRouterInterface::MirrorPosition posision)
+	{
+		if (_media_router == nullptr)
+		{
+			return CommonErrorCode::INVALID_STATE;
+		}
+
+		return _media_router->MirrorStream(stream_tap, vhost_app_name, stream_name, posision);
+	}
+
+	CommonErrorCode Orchestrator::UnmirrorStream(const std::shared_ptr<MediaRouterStreamTap> &stream_tap)
+	{
+		if (_media_router == nullptr)
+		{
+			return CommonErrorCode::INVALID_STATE;
+		}
+
+		return _media_router->UnmirrorStream(stream_tap);
+	}
+
 }  // namespace ocst

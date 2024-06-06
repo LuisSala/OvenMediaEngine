@@ -22,9 +22,9 @@ class WebRtcPublisher : public pub::Publisher,
 						public RtcSignallingObserver
 {
 public:
-	static std::shared_ptr<WebRtcPublisher> Create(const cfg::Server &server_config, const std::shared_ptr<MediaRouteInterface> &router);
+	static std::shared_ptr<WebRtcPublisher> Create(const cfg::Server &server_config, const std::shared_ptr<MediaRouterInterface> &router);
 
-	WebRtcPublisher(const cfg::Server &server_config, const std::shared_ptr<MediaRouteInterface> &router);
+	WebRtcPublisher(const cfg::Server &server_config, const std::shared_ptr<MediaRouterInterface> &router);
 	~WebRtcPublisher() override;
 
 	bool Stop() override;
@@ -40,12 +40,12 @@ public:
 	bool OnAddRemoteDescription(const std::shared_ptr<http::svr::ws::WebSocketSession> &ws_session,
 								const info::VHostAppName &vhost_app_name, const ov::String &host_name, const ov::String &stream_name,
 								const std::shared_ptr<const SessionDescription> &offer_sdp,
-								const std::shared_ptr<const SessionDescription> &peer_sdp) override;
+								const std::shared_ptr<const SessionDescription> &answer_sdp) override;
 
 	bool OnChangeRendition(const std::shared_ptr<http::svr::ws::WebSocketSession> &ws_session,
 						   bool change_rendition, const ov::String &rendition_name, bool change_auto, bool &auto_abr,
 						   const std::shared_ptr<const SessionDescription> &offer_sdp,
-						   const std::shared_ptr<const SessionDescription> &peer_sdp) override;
+						   const std::shared_ptr<const SessionDescription> &answer_sdp) override;
 
 	bool OnIceCandidate(const std::shared_ptr<http::svr::ws::WebSocketSession> &ws_session,
 						const info::VHostAppName &vhost_app_name, const ov::String &host_name, const ov::String &stream_name,
@@ -55,7 +55,7 @@ public:
 	bool OnStopCommand(const std::shared_ptr<http::svr::ws::WebSocketSession> &ws_session,
 					   const info::VHostAppName &vhost_app_name, const ov::String &host_name, const ov::String &stream_name,
 					   const std::shared_ptr<const SessionDescription> &offer_sdp,
-					   const std::shared_ptr<const SessionDescription> &peer_sdp) override;
+					   const std::shared_ptr<const SessionDescription> &answer_sdp) override;
 
 protected:
 	bool StartSignallingServer(const cfg::Server &server_config, const cfg::bind::cmm::Webrtc &webrtc_bind_config);

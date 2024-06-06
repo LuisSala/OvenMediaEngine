@@ -254,7 +254,7 @@ $ sudo setenforce 0
 
 WebRTC does not support b-frame of H.264. But if your encoder sends b-frames the video will be stuttered in the player. In this case, you can solve the problem by disabling the b-frame function in your encoder. For OBS, you can set bframes=0 option as below.
 
-![](<.gitbook/assets/image (39) (1).png>)
+![](<.gitbook/assets/image (40) (1).png>)
 
 Or by **activating the encoding options** in OvenMediaEngine.
 
@@ -310,7 +310,7 @@ net.ipv4.tcp_max_tw_buckets = 1440000
 net.ipv4.ip_local_port_range = 1024 65000
 net.ipv4.tcp_fin_timeout = 15
 net.ipv4.tcp_window_scaling = 1
-net.ipv4.tcp_max_syn_backlog = 3240000
+net.ipv4.tcp_max_syn_backlog = 324000
 net.core.rmem_max = 16777216
 net.core.wmem_max = 16777216
 net.core.rmem_default = 16777216
@@ -319,7 +319,6 @@ net.core.optmem_max = 40960
 net.ipv4.tcp_rmem = 4096 87380 16777216
 net.ipv4.tcp_wmem = 4096 65536 16777216
 net.core.netdev_max_backlog = 50000
-net.ipv4.tcp_max_syn_backlog = 30000
 net.ipv4.tcp_max_tw_buckets = 2000000
 net.ipv4.tcp_tw_reuse = 1
 net.ipv4.tcp_fin_timeout = 10

@@ -45,6 +45,8 @@ namespace cmn
 		ID3v2,
 
 		HVCC, // H.265 HVCC
+
+		MP3
 	};
 
 	enum class PacketType : int8_t
@@ -92,19 +94,26 @@ namespace cmn
 		Png,
 	};
 
-	enum class MediaCodecLibraryId : uint8_t
+	enum class MediaCodecModuleId : uint8_t
 	{
-		AUTO,
-		DEFAULT,
-		OPENH264,
-		BEAMR,
-		NVENC,
-		QSV,
-		XMA,
-		LIBVPX,
-		FDKAAC,
-		LIBOPUS,
+		None = 0,
+		DEFAULT,	// SW
+		OPENH264,	// SW
+		BEAMR,		// SW
+		NVENC,		// HW
+		QSV,		// HW
+		XMA,		// HW
+		NILOGAN,	// HW
+		LIBVPX,		// SW
+		FDKAAC,		// SW
+		LIBOPUS,	// SW
 		NB
+	};
+
+	enum class KeyFrameIntervalType : uint8_t
+	{
+		FRAME = 0,
+		TIME
 	};
 
 	static bool IsVideoCodec(cmn::MediaCodecId codec_id)
@@ -112,6 +121,7 @@ namespace cmn
 		if (codec_id == cmn::MediaCodecId::H264 ||
 			codec_id == cmn::MediaCodecId::H265 ||
 			codec_id == cmn::MediaCodecId::Vp8 ||
+			codec_id == cmn::MediaCodecId::Vp9 ||
 			codec_id == cmn::MediaCodecId::Flv ||
 			codec_id == cmn::MediaCodecId::Vp9)
 		{
@@ -207,6 +217,8 @@ namespace cmn
 				return "AAC_ADTS";
 			case cmn::BitstreamFormat::AAC_LATM:
 				return "AAC_LATM";
+			case cmn::BitstreamFormat::MP3:
+				return "MP3";
 			case cmn::BitstreamFormat::OPUS:
 				return "OPUS";
 			case cmn::BitstreamFormat::OPUS_RTP_RFC_7587:
@@ -222,73 +234,99 @@ namespace cmn
 		}
 	}
 
-	static cmn::MediaCodecLibraryId GetCodecLibraryIdByName(ov::String name)
+	static cmn::MediaCodecModuleId GetCodecModuleIdByName(ov::String name)
 	{
 		name.MakeUpper();
 
-		if (name.HasSuffix("_OPENH264"))
+		if (name.HasSuffix("_OPENH264") || name.HasSuffix("OPENH264"))
 		{
-			return cmn::MediaCodecLibraryId::OPENH264;
+			return cmn::MediaCodecModuleId::OPENH264;
 		}
-		else if (name.HasSuffix("_BEAMR"))
+		else if (name.HasSuffix("_BEAMR") || name.HasSuffix("BEAMR"))
 		{
-			return cmn::MediaCodecLibraryId::BEAMR;
+			return cmn::MediaCodecModuleId::BEAMR;
 		}
-		else if (name.HasSuffix("_NVENC"))
+		else if (name.HasSuffix("_NVENC") || name.HasSuffix("NV") || name.HasSuffix("NVENC"))
 		{
-			return cmn::MediaCodecLibraryId::NVENC;
+			return cmn::MediaCodecModuleId::NVENC;
 		}
-		else if (name.HasSuffix("_QSV"))
+		else if (name.HasSuffix("_QSV") || name.HasSuffix("QSV"))
 		{
-			return cmn::MediaCodecLibraryId::QSV;
+			return cmn::MediaCodecModuleId::QSV;
 		}
-		else if (name.HasSuffix("_XMA"))
+		else if (name.HasSuffix("_NILOGAN") || name.HasSuffix("NILOGAN"))
 		{
-			return cmn::MediaCodecLibraryId::XMA;
+			return cmn::MediaCodecModuleId::NILOGAN;
+		}
+		else if (name.HasSuffix("_XMA") || name.HasSuffix("XMA"))
+		{
+			return cmn::MediaCodecModuleId::XMA;
 		}		
-		else if (name.HasSuffix("_LIBVPX"))
+		else if (name.HasSuffix("_LIBVPX") || name.HasSuffix("LIBVPX"))
 		{
-			return cmn::MediaCodecLibraryId::LIBVPX;
+			return cmn::MediaCodecModuleId::LIBVPX;
 		}
-		else if (name.HasSuffix("_FDKAAC"))
+		else if (name.HasSuffix("_FDKAAC") || name.HasSuffix("FDKAAC"))
 		{
-			return cmn::MediaCodecLibraryId::FDKAAC;
+			return cmn::MediaCodecModuleId::FDKAAC;
+		}
+		else if (name.HasSuffix("_DEFAULT") || name.HasSuffix("DEFAULT"))
+		{
+			return cmn::MediaCodecModuleId::DEFAULT;
 		}
 
-		return cmn::MediaCodecLibraryId::AUTO;
+		return cmn::MediaCodecModuleId::None;
 	}
 
-	static ov::String GetStringFromCodecLibraryId(cmn::MediaCodecLibraryId id)
+	static ov::String GetStringFromCodecModuleId(cmn::MediaCodecModuleId id)
 	{
 		switch (id)
 		{
-			case cmn::MediaCodecLibraryId::DEFAULT:
-				return "Default";
-			case cmn::MediaCodecLibraryId::OPENH264:
-				return "OpenH264";
-			case cmn::MediaCodecLibraryId::BEAMR:
-				return "Beamr";
-			case cmn::MediaCodecLibraryId::NVENC:
+			case cmn::MediaCodecModuleId::DEFAULT:
+				return "default";
+			case cmn::MediaCodecModuleId::OPENH264:
+				return "openh264";
+			case cmn::MediaCodecModuleId::BEAMR:
+				return "beamr";
+			case cmn::MediaCodecModuleId::NVENC:
 				return "nvenc";
-			case cmn::MediaCodecLibraryId::QSV:
+			case cmn::MediaCodecModuleId::QSV:
 				return "qsv";
-			case cmn::MediaCodecLibraryId::XMA:
+			case cmn::MediaCodecModuleId::NILOGAN:
+				return "nilogan";
+			case cmn::MediaCodecModuleId::XMA:
 				return "xma";				
-			case cmn::MediaCodecLibraryId::LIBVPX:
+			case cmn::MediaCodecModuleId::LIBVPX:
 				return "libvpx";
-			case cmn::MediaCodecLibraryId::FDKAAC:
+			case cmn::MediaCodecModuleId::FDKAAC:
 				return "fdkaac";
-			case cmn::MediaCodecLibraryId::LIBOPUS:
+			case cmn::MediaCodecModuleId::LIBOPUS:
 				return "libopus";
-			case cmn::MediaCodecLibraryId::AUTO:
+			case cmn::MediaCodecModuleId::None:
 			default:
 				break;
 		}
 
-		return "Auto";
+		return "none";
 	}
 
-	static ov::String GetStringFromCodecId(cmn::MediaCodecId id)
+	static bool IsSupportHWAccels(cmn::MediaCodecModuleId id)
+	{
+		switch(id)
+		{
+			case cmn::MediaCodecModuleId::NVENC:
+			case cmn::MediaCodecModuleId::QSV:
+			case cmn::MediaCodecModuleId::XMA:
+			case cmn::MediaCodecModuleId::NILOGAN:
+				return true;
+			default:
+				break;
+		}
+
+		return false;
+	}
+
+	static ov::String GetCodecIdToString(cmn::MediaCodecId id)
 	{
 		switch (id)
 		{
@@ -302,6 +340,8 @@ namespace cmn
 				return "VP9";
 			case cmn::MediaCodecId::Aac:
 				return "AAC";
+			case cmn::MediaCodecId::Mp3:
+				return "MP3";				
 			case cmn::MediaCodecId::Opus:
 				return "OPUS";
 			case cmn::MediaCodecId::Jpeg:
@@ -325,6 +365,7 @@ namespace cmn
 			name == "H264_BEAMR" ||
 			name == "H264_NVENC" ||
 			name == "H264_QSV" ||
+			name == "H264_NILOGAN" ||
 			name == "H264_XMA")
 		{
 			return cmn::MediaCodecId::H264;
@@ -332,6 +373,7 @@ namespace cmn
 		else if (name == "H265" || 
 				 name == "H265_NVENC" || 
 				 name == "H265_QSV" ||
+				 name == "H265_NILOGAN" ||
 		 		 name == "H265_XMA")
 		{
 			return cmn::MediaCodecId::H265;
@@ -372,6 +414,35 @@ namespace cmn
 		}
 
 		return cmn::MediaCodecId::None;
+	}
+
+	static ov::String GetKeyFrameIntervalTypeToString(cmn::KeyFrameIntervalType type)
+	{
+		switch (type)
+		{
+			case cmn::KeyFrameIntervalType::FRAME:
+				return "frame";
+			case cmn::KeyFrameIntervalType::TIME:
+				return "time";
+			default:
+				return "unknown";
+		}
+	}
+
+	static cmn::KeyFrameIntervalType GetKeyFrameIntervalTypeByName(ov::String type)
+	{
+		type.MakeLower();
+
+		if (type == "frame")
+		{
+			return cmn::KeyFrameIntervalType::FRAME;
+		}
+		else if (type == "time")
+		{
+			return cmn::KeyFrameIntervalType::TIME;
+		}
+
+		return cmn::KeyFrameIntervalType::FRAME;
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////

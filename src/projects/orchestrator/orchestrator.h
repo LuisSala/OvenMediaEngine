@@ -183,7 +183,12 @@ namespace ocst
 
 		// Persistent Stream
 		CommonErrorCode CreatePersistentStreamIfNeed(const info::Application &app_info, const std::shared_ptr<info::Stream> &stream_info);
-		
+
+		// Mirror Stream
+		bool CheckIfStreamExist(const info::VHostAppName &vhost_app_name, const ov::String &stream_name);
+		CommonErrorCode MirrorStream(std::shared_ptr<MediaRouterStreamTap> &stream_tap, const info::VHostAppName &vhost_app_name, const ov::String &stream_name, MediaRouterInterface::MirrorPosition posision);
+		CommonErrorCode UnmirrorStream(const std::shared_ptr<MediaRouterStreamTap> &stream_tap);
+
 		//--------------------------------------------------------------------
 		// Implementation of ocst::Application::CallbackInterface
 		//--------------------------------------------------------------------

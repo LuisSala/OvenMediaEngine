@@ -75,6 +75,8 @@ namespace ocst
 		bool failback = false;
 
 		bool strict_location = false;
+
+		bool ignore_rtcp_sr_timestamp = false;
 		
 		bool relay = true;
 	};
@@ -102,7 +104,7 @@ namespace ocst
 		ItemState state = ItemState::Unknown;
 	};
 
-	struct Application : public MediaRouteApplicationObserver
+	struct Application : public MediaRouterApplicationObserver
 	{
 		class CallbackInterface
 		{
@@ -116,7 +118,7 @@ namespace ocst
 		Application(CallbackInterface *callback, const info::Application &app_info);
 
 		//--------------------------------------------------------------------
-		// Implementation of MediaRouteApplicationObserver
+		// Implementation of MediaRouterApplicationObserver
 		//--------------------------------------------------------------------
 		// Temporarily used until Orchestrator takes stream management
 		bool OnStreamCreated(const std::shared_ptr<info::Stream> &info) override;

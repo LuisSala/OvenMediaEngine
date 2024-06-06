@@ -5,7 +5,7 @@
 #include "ovt_private.h"
 #include "ovt_session.h"
 
-std::shared_ptr<OvtPublisher> OvtPublisher::Create(const cfg::Server &server_config, const std::shared_ptr<MediaRouteInterface> &router)
+std::shared_ptr<OvtPublisher> OvtPublisher::Create(const cfg::Server &server_config, const std::shared_ptr<MediaRouterInterface> &router)
 {
 	auto obj = std::make_shared<OvtPublisher>(server_config, router);
 
@@ -17,7 +17,7 @@ std::shared_ptr<OvtPublisher> OvtPublisher::Create(const cfg::Server &server_con
 	return obj;
 }
 
-OvtPublisher::OvtPublisher(const cfg::Server &server_config, const std::shared_ptr<MediaRouteInterface> &router)
+OvtPublisher::OvtPublisher(const cfg::Server &server_config, const std::shared_ptr<MediaRouterInterface> &router)
 	: Publisher(server_config, router)
 {
 }
@@ -267,6 +267,7 @@ void OvtPublisher::OnDisconnected(const std::shared_ptr<ov::Socket> &remote,
 	// disconnect means when the stream disconnects itself.
 	if (reason != PhysicalPortDisconnectReason::Disconnect)
 	{
+		std::shared_lock<std::shared_mutex> lock(_remote_stream_map_lock);
 		auto streams = _remote_stream_map.equal_range(remote->GetNativeHandle());
 		for (auto it = streams.first; it != streams.second; ++it)
 		{
@@ -436,6 +437,7 @@ bool OvtPublisher::LinkRemoteWithStream(int remote_id, std::shared_ptr<OvtStream
 {
 	// For ungraceful disconnect
 	// one remote id can be join multiple streams.
+	std::lock_guard<std::shared_mutex> guard(_remote_stream_map_lock);
 	_remote_stream_map.insert(std::pair<int, std::shared_ptr<OvtStream>>(remote_id, stream));
 
 	return true;
@@ -443,6 +445,7 @@ bool OvtPublisher::LinkRemoteWithStream(int remote_id, std::shared_ptr<OvtStream
 
 bool OvtPublisher::UnlinkRemoteFromStream(int remote_id)
 {
+	std::lock_guard<std::shared_mutex> guard(_remote_stream_map_lock);
 	_remote_stream_map.erase(remote_id);
 
 	return true;

@@ -45,6 +45,7 @@ namespace info
 		_source_type = stream._source_type;
 		_source_url = stream._source_url;
 		_created_time = stream._created_time;
+		_published_time = stream._published_time;
 		_app_info = stream._app_info;
 		_origin_stream = stream._origin_stream;
 
@@ -181,6 +182,26 @@ namespace info
 		return _created_time;
 	}
 
+	void Stream::SetPublishedTimeNow()
+	{
+		_published_time = std::chrono::system_clock::now();
+	}
+
+	const std::chrono::system_clock::time_point &Stream::GetPublishedTime() const
+	{
+		return _published_time;
+	}
+
+	const std::chrono::system_clock::time_point &Stream::GetInputStreamPublishedTime() const
+	{
+		if (GetLinkedInputStream() != nullptr)
+		{
+			return GetLinkedInputStream()->GetPublishedTime();
+		}
+
+		return GetPublishedTime();
+	}
+
 	uint32_t Stream::GetUptimeSec()
 	{
 		auto current = std::chrono::high_resolution_clock::now();
@@ -202,34 +223,21 @@ namespace info
 		_representation_type = type;
 	}
 
-	int32_t Stream::IssueUniqueTrackId()
+	uint32_t Stream::IssueUniqueTrackId()
 	{
-		int32_t track_id = ov::Random::GenerateInt32(100, 0x7FFFFFFF);
-
-		while (true)
-		{
-			auto item = _tracks.find(track_id);
-			if (item == _tracks.end())
-			{
-				break;
-			}
-
-			track_id = ov::Random::GenerateInt32(100, 0x7FFFFFFF);
-		}
-
-		return track_id;
+		static std::atomic<uint32_t> last_issued_track_id(1);
+		return last_issued_track_id++;
 	}
 
 	bool Stream::AddTrack(const std::shared_ptr<MediaTrack> &track)
 	{
-		// If there is an existing track with the same track id, it will be deleted.
 		auto item = _tracks.find(track->GetId());
 		if (item != _tracks.end())
 		{
-			_tracks.erase(item);
+			return false;
 		}
 
-		auto result = _tracks.insert(std::make_pair(track->GetId(), track)).second;
+		_tracks.emplace(track->GetId(), track);
 
 		if (track->GetMediaType() == cmn::MediaType::Video)
 		{
@@ -254,7 +262,64 @@ namespace info
 			group->AddTrack(track);
 		}
 
-		return result;
+		return true;
+	}
+
+	// If track is not exist, add track or update track
+	bool Stream::UpdateTrack(const std::shared_ptr<MediaTrack> &track)
+	{
+		auto ex_track = GetTrack(track->GetId());
+		if (ex_track == nullptr)
+		{
+			return AddTrack(track);
+		}
+
+		return ex_track->Update(*track);
+	}
+
+	bool Stream::RemoveTrack(uint32_t id)
+	{
+		auto track = GetTrack(id);
+		if (track == nullptr)
+		{
+			return true;
+		}
+
+		_tracks.erase(id);
+
+		// Remove from vectors
+		if (track->GetMediaType() == cmn::MediaType::Video)
+		{
+			for (auto it = _video_tracks.begin(); it != _video_tracks.end(); ++it)
+			{
+				if ((*it)->GetId() == id)
+				{
+					_video_tracks.erase(it);
+					break;
+				}
+			}
+		}
+		else if (track->GetMediaType() == cmn::MediaType::Audio)
+		{
+			for (auto it = _audio_tracks.begin(); it != _audio_tracks.end(); ++it)
+			{
+				if ((*it)->GetId() == id)
+				{
+					_audio_tracks.erase(it);
+					break;
+				}
+			}
+		}
+
+		// Remove from group
+		auto group_it = _track_group_map.find(track->GetVariantName());
+		if (group_it != _track_group_map.end())
+		{
+			auto group = group_it->second;
+			group->RemoveTrack(id);
+		}
+
+		return true;
 	}
 
 	const std::shared_ptr<MediaTrack> Stream::GetTrack(int32_t id) const
@@ -355,8 +420,8 @@ namespace info
 
 	bool Stream::AddPlaylist(const std::shared_ptr<Playlist> &playlist)
 	{
-		_playlists.emplace(playlist->GetFileName(), playlist);
-		return true;
+		auto result = _playlists.emplace(playlist->GetFileName(), playlist);
+		return result.second;
 	}
 
 	std::shared_ptr<const Playlist> Stream::GetPlaylist(const ov::String &file_name) const

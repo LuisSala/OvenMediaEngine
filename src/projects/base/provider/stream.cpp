@@ -12,6 +12,8 @@
 #include "application.h"
 #include "base/info/application.h"
 #include "provider_private.h"
+#include "base/provider/pull_provider/stream_props.h"
+#include "base/provider/pull_provider/stream.h"
 
 
 namespace pvd
@@ -188,8 +190,10 @@ namespace pvd
 
 	void Stream::ResetSourceStreamTimestamp()
 	{
-		// Get the last timestamp of the highest value of all tracks
-#if 1		
+		
+#if 0	
+		// Set the last timestamp of the lowest value of all tracks
+		// Since the first packet of video usually starts with a keyframe, this tends to discard the first keyframe.
 		int64_t last_timestamp = std::numeric_limits<int64_t>::max();
 		for (const auto &[track_id, timestamp] : _last_timestamp_map)
 		{
@@ -201,7 +205,10 @@ namespace pvd
 
 			last_timestamp = std::min<int64_t>(timestamp, last_timestamp);
 		}
-#else	
+#else
+		// Set the last timestamp of the highest value of all tracks
+		// In this algorithm, the timestamp of A or V jumps for synchronization.
+		// But after testing with a variety of players, this is better.
 		int64_t last_timestamp = std::numeric_limits<int64_t>::min();
 		for (const auto &[track_id, timestamp] : _last_timestamp_map)
 		{
@@ -248,34 +255,54 @@ namespace pvd
 
 	bool Stream::AdjustRtpTimestamp(uint32_t track_id, int64_t timestamp, int64_t max_timestamp, int64_t &adjusted_timestamp)
 	{
-		// Make decision timestamp calculation method
+		// Make decision timestamp calculation method	
 		if (_rtp_timestamp_method == RtpTimestampCalculationMethod::UNDER_DECISION)
 		{
-			if (GetTracks().size() == 1)
+			if (GetDirectionType() == DirectionType::PULL)
 			{
-				logti("Since this stream has a single track, it computes PTS alone without RTCP SR.");
-				_rtp_timestamp_method = RtpTimestampCalculationMethod::SINGLE_DELTA;
-			}
-			else if (_rtp_lip_sync_clock.IsEnabled() == true)
-			{
-				logti("Since this stream has received an RTCP SR, it counts the PTS with the SR.");
-				_rtp_timestamp_method = RtpTimestampCalculationMethod::WITH_RTCP_SR;
-			}
-			// If it exceeds 5 seconds, it is calculated independently without RTCP SR.
-			else if (_rtp_lip_sync_clock.IsEnabled() == false && _first_rtp_received_time.Elapsed() > 5000)
-			{
-				logtw("Since the RTCP SR was not received within 5 seconds, the PTS is calculated for each track without RTCP SR. (Lip-Sync may be out of sync)");
-				_rtp_timestamp_method = RtpTimestampCalculationMethod::SINGLE_DELTA;
-			}
-			else if (_rtp_lip_sync_clock.IsEnabled() == false && _first_rtp_received_time.Elapsed() <= 5000)
-			{
-				// Wait for RTCP SR for 5 seconds
-				if (_first_rtp_received_time.IsStart() == false)
+				// If this stream is type of PullStream, check the property of IgnoreRtcpSRTimestamp.
+				auto stream = std::static_pointer_cast<pvd::PullStream>(GetSharedPtr());
+				if(stream != nullptr)
 				{
-					logtw("Wait for RTCP SR for 5 seconds before starting the stream.");
-					_first_rtp_received_time.Start();
+					auto props = stream->GetProperties();
+					if(props != nullptr)
+					{
+						if(props->IsRtcpSRTimestampIgnored())
+						{
+							_rtp_timestamp_method = RtpTimestampCalculationMethod::SINGLE_DELTA;
+						}
+					}
 				}
-				return false; 
+			}
+
+			if (_rtp_timestamp_method == RtpTimestampCalculationMethod::UNDER_DECISION)
+			{
+				if ((GetMediaTrackCount(cmn::MediaType::Video) + GetMediaTrackCount(cmn::MediaType::Audio)) == 1)
+				{
+					logti("Since this stream has a single track, it computes PTS alone without RTCP SR.");
+					_rtp_timestamp_method = RtpTimestampCalculationMethod::SINGLE_DELTA;
+				}
+				else if (_rtp_lip_sync_clock.IsEnabled() == true)
+				{
+					logti("Since this stream has received an RTCP SR, it counts the PTS with the SR.");
+					_rtp_timestamp_method = RtpTimestampCalculationMethod::WITH_RTCP_SR;
+				}
+				// If it exceeds 5 seconds, it is calculated independently without RTCP SR.
+				else if (_rtp_lip_sync_clock.IsEnabled() == false && _first_rtp_received_time.Elapsed() > 5000)
+				{
+					logtw("Since the RTCP SR was not received within 5 seconds, the PTS is calculated for each track without RTCP SR. (Lip-Sync may be out of sync)");
+					_rtp_timestamp_method = RtpTimestampCalculationMethod::SINGLE_DELTA;
+				}
+				else if (_rtp_lip_sync_clock.IsEnabled() == false && _first_rtp_received_time.Elapsed() <= 5000)
+				{
+					// Wait for RTCP SR for 5 seconds
+					if (_first_rtp_received_time.IsStart() == false)
+					{
+						logtw("Wait for RTCP SR for 5 seconds before starting the stream.");
+						_first_rtp_received_time.Start();
+					}
+					return false; 
+				}
 			}
 		}
 
@@ -304,7 +331,7 @@ namespace pvd
 
 	// This keeps the pts value of the input track (only the start value<base_timestamp> is different), meaning that this value can be used for A/V sync.
 	// returns adjusted PTS and parameter PTS and DTS are also adjusted.
-	int64_t Stream::AdjustTimestampByBase(uint32_t track_id, int64_t &pts, int64_t &dts, int64_t max_timestamp)
+	int64_t Stream::AdjustTimestampByBase(uint32_t track_id, int64_t &pts, int64_t &dts, int64_t max_timestamp, int64_t duration)
 	{
 		auto track = GetTrack(track_id);
 		if (!track)
@@ -319,6 +346,12 @@ namespace pvd
 		if (_start_timestamp == -1LL)
 		{
 			_start_timestamp = (int64_t)((double)dts * expr_tb2us);
+
+			// Updated stream's first timestamp should be next timestamp of last timestamp + duration of previous stream.
+			if (_last_duration_map.find(track_id) != _last_duration_map.end())
+			{
+				_start_timestamp -= (_last_duration_map[track_id] * expr_tb2us);
+			}
 
 			// for debugging
 			logtd("[%s/%s(%d)] Get start timestamp of stream. track:%d, ts:%lld (%d/%d) (%lldus)", _application->GetName().CStr(), GetName().CStr(), GetId(), track_id, dts, track->GetTimeBase().GetNum(), track->GetTimeBase().GetDen(), _start_timestamp);
@@ -394,12 +427,14 @@ namespace pvd
 		_last_origin_ts_map[0][track_id] = pts;
 		_last_origin_ts_map[1][track_id] = dts;
 
+		_last_duration_map[track_id] = duration;
+
 		pts = final_pkt_pts_tb;
 		dts = final_pkt_dts_tb;
 
 #if 0
 		// for debugging
-		logtd("[%s/%20s(%d)] track:%d, pts:%8lld -> %8lld (%8lldus), dts:%8lld -> %8lld (%8lldus), tb:%d/%d / lasttime:%lld, basetime:%lld",
+		logti("[%s/%20s(%d)] track:%d, pts:%8lld -> %8lld (%8lldus), dts:%8lld -> %8lld (%8lldus), tb:%d/%d / lasttime:%lld, basetime:%lld",
 				_application->GetName().CStr(), GetName().CStr(), GetId(), track_id,
 				pts, final_pkt_pts_tb, (int64_t)((double)final_pkt_pts_tb * expr_tb2us), 
 				dts, final_pkt_dts_tb, (int64_t)((double)final_pkt_dts_tb * expr_tb2us),
@@ -490,5 +525,27 @@ namespace pvd
 
 		_source_timestamp_map[track_id] = timestamp;
 		return delta;
+	}
+
+	// Increase MSID and notify the application of the stream update
+	bool Stream::UpdateStream()
+	{
+		if (_application == nullptr)
+		{
+			return false;
+		}
+
+		if (_application->UpdateStream(GetSharedPtr()) == false)
+		{
+			return false;
+		}
+
+		ResetSourceStreamTimestamp();
+		SetMsid(GetMsid() + 1);
+
+		logti("%s/%s(%u) has been updated stream", GetApplicationName(), GetName().CStr(), GetId());
+		logti("%s", GetInfoString().CStr());
+
+		return true;
 	}
 }  // namespace pvd

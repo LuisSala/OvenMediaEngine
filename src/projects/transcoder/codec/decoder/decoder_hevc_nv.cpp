@@ -68,10 +68,15 @@ bool DecoderHEVCxNV::InitCodec()
 		return false;
 	}
 
+	_context->hw_device_ctx = ::av_buffer_ref(TranscodeGPU::GetInstance()->GetDeviceContext(cmn::MediaCodecModuleId::NVENC, _track->GetCodecDeviceId()));
+	if(_context->hw_device_ctx == nullptr)
+	{
+		logte("Could not allocate hw device context for %s (%d)", ::avcodec_get_name(GetCodecID()), GetCodecID());
+		return false;
+	}
+
 	_context->time_base = ffmpeg::Conv::TimebaseToAVRational(GetTimebase());
 	_context->pkt_timebase = ffmpeg::Conv::TimebaseToAVRational(GetTimebase());
-
-	_context->hw_device_ctx = ::av_buffer_ref(TranscodeGPU::GetInstance()->GetDeviceContext());
 	_context->flags |= AV_CODEC_FLAG_LOW_DELAY;
 
 	if (::avcodec_open2(_context, _codec, nullptr) < 0)
@@ -81,6 +86,8 @@ bool DecoderHEVCxNV::InitCodec()
 		return false;
 	}
 
+	_change_format = false;
+	
 	return true;
 }
 
@@ -90,6 +97,25 @@ void DecoderHEVCxNV::UninitCodec()
 	::avcodec_free_context(&_context);
 
 	_context = nullptr;
+}
+
+bool DecoderHEVCxNV::ReinitCodecIfNeed()
+{
+	// NVIDIA H.265 decoder does not support dynamic resolution streams.
+	// So, when a resolution change is detected, the codec is reset and recreated.
+	if (_context->width != 0 && _context->height != 0 && (_parser->width != _context->width || _parser->height != _context->height))
+	{
+		logti("Changed input resolution of %u track. (%dx%d -> %dx%d)", GetRefTrack()->GetId(), _context->width, _context->height, _parser->width, _parser->height);
+
+		UninitCodec();
+
+		if (InitCodec() == false)
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 void DecoderHEVCxNV::CodecThread()
@@ -124,18 +150,9 @@ void DecoderHEVCxNV::CodecThread()
 				break;
 			}
 
-			// NVIDIA H.265 decoder does not support dynamic resolution streams.
-			// So, when a resolution change is detected, the codec is reset and recreated.
-			if (_context->width != 0 && _context->height != 0 && (_parser->width != _context->width || _parser->height != _context->height))
+			if(ReinitCodecIfNeed() == false)
 			{
-				logti("Changed input resolution of %u track. (%dx%d -> %dx%d)", GetRefTrack()->GetId(), _context->width, _context->height, _parser->width, _parser->height);
-
-				UninitCodec();
-
-				if(InitCodec() == false)
-				{
-					break;
-				}
+				break;
 			}
 
 			if (_pkt->size > 0)
@@ -242,41 +259,21 @@ void DecoderHEVCxNV::CodecThread()
 					}
 				}
 
-				AVFrame *sw_frame = ::av_frame_alloc();
-				AVFrame *tmp_frame = NULL;
-
-				if (_frame->format == AV_PIX_FMT_CUDA)
-				{
-					/* retrieve data from GPU to CPU */
-					if ((ret = ::av_hwframe_transfer_data(sw_frame, _frame, 0)) < 0)
-					{
-						logte("Error transferring the data to system memory\n");
-						continue;
-					}
-					tmp_frame = sw_frame;
-				}
-				else
-				{
-					tmp_frame = _frame;
-				}
-				tmp_frame->pts = _frame->pts;
-
 				// If there is no duration, the duration is calculated by framerate and timebase.
 				if(_frame->pkt_duration <= 0LL && _context->framerate.num > 0 && _context->framerate.den > 0)
 				{
 					_frame->pkt_duration = (int64_t)( ((double)_context->framerate.den / (double)_context->framerate.num) / ((double) GetRefTrack()->GetTimeBase().GetNum() / (double) GetRefTrack()->GetTimeBase().GetDen()) );
 				}
 
-				auto decoded_frame = ffmpeg::Conv::ToMediaFrame(cmn::MediaType::Video, tmp_frame);
+				auto decoded_frame = ffmpeg::Conv::ToMediaFrame(cmn::MediaType::Video, _frame);
 				if (decoded_frame == nullptr)
 				{
 					continue;
 				}
 
 				::av_frame_unref(_frame);
-				::av_frame_free(&sw_frame);
 
-				SendOutputBuffer(need_to_change_notify ? TranscodeResult::FormatChanged : TranscodeResult::DataReady, std::move(decoded_frame));
+				Complete(need_to_change_notify ? TranscodeResult::FormatChanged : TranscodeResult::DataReady, std::move(decoded_frame));
 			}
 		}
 	}

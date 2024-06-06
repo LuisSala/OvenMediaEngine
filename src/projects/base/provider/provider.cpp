@@ -18,7 +18,7 @@
 
 namespace pvd
 {
-	Provider::Provider(const cfg::Server &server_config, const std::shared_ptr<MediaRouteInterface> &router)
+	Provider::Provider(const cfg::Server &server_config, const std::shared_ptr<MediaRouterInterface> &router)
 		: _server_config(server_config), _router(router)
 	{
 	}
@@ -232,6 +232,12 @@ namespace pvd
 		}
 
 		return nullptr;
+	}
+
+	std::map<info::application_id_t, std::shared_ptr<Application>> Provider::GetApplications()
+	{
+		std::shared_lock<std::shared_mutex> lock(_application_map_mutex);
+		return _applications;
 	}
 
 	std::tuple<AccessController::VerificationResult, std::shared_ptr<const SignedPolicy>> Provider::VerifyBySignedPolicy(const std::shared_ptr<const ov::Url> &request_url, const std::shared_ptr<ov::SocketAddress> &client_address)

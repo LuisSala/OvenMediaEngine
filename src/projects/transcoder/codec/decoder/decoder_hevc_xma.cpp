@@ -96,11 +96,15 @@ bool DecoderHEVCxXMA::InitCodec()
 		::memcpy(_context->extradata,  reinterpret_cast<const uint8_t *>(extra_data->GetData()), _context->extradata_size);
 	}
 
+	::av_opt_set_int(_context->priv_data, "lxlnx_hwdev", _track->GetCodecDeviceId(), 0);
+
 	if (::avcodec_open2(_context, _codec, nullptr) < 0)
 	{
 		logte("Could not open codec: %s (%d)", ::avcodec_get_name(GetCodecID()), GetCodecID());
 		return false;
 	}
+
+	_change_format = false;
 
 	return true;
 }
@@ -115,7 +119,7 @@ void DecoderHEVCxXMA::UninitCodec()
 
 bool DecoderHEVCxXMA::ReinitCodecIfNeed()
 {
-	// Xilinx H.264 decoder does not support dynamic resolution streams. (e.g. WebRTC)
+	// Xilinx H.265 decoder does not support dynamic resolution streams. (e.g. WebRTC)
 	// So, when a resolution change is detected, the codec is reset and recreated.
 	if (_context->width != 0 && _context->height != 0 && (_parser->width != _context->width || _parser->height != _context->height))
 	{
@@ -174,7 +178,10 @@ void DecoderHEVCxXMA::CodecThread()
 				break;
 			}
 
-			ReinitCodecIfNeed();
+			if(ReinitCodecIfNeed() == false)
+			{
+				break;
+			}
 
 			///////////////////////////////
 			// Send to decoder
@@ -303,7 +310,7 @@ void DecoderHEVCxXMA::CodecThread()
 
 				::av_frame_unref(_frame);
 
-				SendOutputBuffer(need_to_change_notify ? TranscodeResult::FormatChanged : TranscodeResult::DataReady, std::move(decoded_frame));
+				Complete(need_to_change_notify ? TranscodeResult::FormatChanged : TranscodeResult::DataReady, std::move(decoded_frame));
 			}
 
 		}

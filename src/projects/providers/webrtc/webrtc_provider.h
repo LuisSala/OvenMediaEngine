@@ -24,9 +24,9 @@ namespace pvd
 						   public WhipObserver
 	{
 	public:
-		static std::shared_ptr<WebRTCProvider> Create(const cfg::Server &server_config, const std::shared_ptr<MediaRouteInterface> &router);
+		static std::shared_ptr<WebRTCProvider> Create(const cfg::Server &server_config, const std::shared_ptr<MediaRouterInterface> &router);
 
-		explicit WebRTCProvider(const cfg::Server &server_config, const std::shared_ptr<MediaRouteInterface> &router);
+		explicit WebRTCProvider(const cfg::Server &server_config, const std::shared_ptr<MediaRouterInterface> &router);
 		~WebRTCProvider() override;
 
 		bool Start() override;
@@ -67,7 +67,7 @@ namespace pvd
 		bool OnAddRemoteDescription(const std::shared_ptr<http::svr::ws::WebSocketSession> &ws_session,
 									const info::VHostAppName &vhost_app_name, const ov::String &host_name, const ov::String &stream_name,
 									const std::shared_ptr<const SessionDescription> &offer_sdp,
-									const std::shared_ptr<const SessionDescription> &peer_sdp) override;
+									const std::shared_ptr<const SessionDescription> &answer_sdp) override;
 		bool OnIceCandidate(const std::shared_ptr<http::svr::ws::WebSocketSession> &ws_session,
 							const info::VHostAppName &vhost_app_name, const ov::String &host_name, const ov::String &stream_name,
 							const std::shared_ptr<RtcIceCandidate> &candidate,
@@ -76,7 +76,7 @@ namespace pvd
 		bool OnStopCommand(const std::shared_ptr<http::svr::ws::WebSocketSession> &ws_session,
 						   const info::VHostAppName &vhost_app_name, const ov::String &host_name, const ov::String &stream_name,
 						   const std::shared_ptr<const SessionDescription> &offer_sdp,
-						   const std::shared_ptr<const SessionDescription> &peer_sdp) override;
+						   const std::shared_ptr<const SessionDescription> &answer_sdp) override;
 		//--------------------------------------------------------------------
 
 		//--------------------------------------------------------------------

@@ -238,7 +238,7 @@
 
 				<Enables>
 					<Providers>rtmp,webrtc,srt</Providers>
-					<Publishers>webrtc,hls,llhls,dash,lldash</Publishers>
+					<Publishers>webrtc,llhls</Publishers>
 				</Enables>
 			</SignedPolicy>
 			-->
@@ -250,7 +250,7 @@
 				<Timeout>3000</Timeout>
 				<Enables>
 					<Providers>rtmp,webrtc,srt</Providers>
-					<Publishers>webrtc,hls,llhls,dash,lldash</Publishers>
+					<Publishers>webrtc,llhls</Publishers>
 				</Enables>
 			</AdmissionWebhooks>
 			-->
@@ -309,8 +309,37 @@
 					<!-- Application type (live/vod) -->
 					<Type>live</Type>
 					<OutputProfiles>
+						
+						<!--  This option is deprecated. Please use the 'HWAccels' option. -->
+						<!-- 
+							<HardwareAcceleration>false</HardwareAcceleration>
+						-->
+
 						<!-- Enable this configuration if you want to hardware acceleration using GPU -->
-						<HardwareAcceleration>false</HardwareAcceleration>
+						<HWAccels>
+							<Decoder>
+									<Enable>false</Enable>
+									<!-- 
+										Setting for Hardware Modules.
+										 - xma :Xilinx Media Accelerator
+										 - qsv :Intel Quick Sync Video
+										 - nv : Nvidia Video Codec SDK
+										 - nilogan: Netint VPU
+
+										You can use multiple modules by separating them with commas.
+										For example, if you want to use xma and nv, you can set it as follows.
+
+										<Modules>[ModuleName]:[DeviceId],[ModuleName]:[DeviceId],...</Modules>
+										<Modules>xma:0,nv:0</Modules>
+									-->
+									<!-- <Modules>nv</Modules> -->
+							</Decoder>
+							<Encoder>
+									<Enable>false</Enable>
+									<!-- <Modules>nv</Modules> -->
+							</Encoder>
+						</HWAccels>
+
 						<OutputProfile>
 							<Name>bypass_stream</Name>
 							<OutputStreamName>${OriginStreamName}</OutputStreamName>
@@ -482,6 +511,11 @@
 								<Url>*</Url>
 							</CrossDomains>
 						</WebRTC>
+
+						<Schedule>
+							<MediaRootDir>/opt/ovenmediaengine/media</MediaRootDir>
+							<ScheduleFilesDir>/opt/ovenmediaengine/media</ScheduleFilesDir>
+						</Schedule>
 					</Providers>
 					<Publishers>
 						<AppWorkerCount>1</AppWorkerCount>

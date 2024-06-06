@@ -8,7 +8,6 @@
 //==============================================================================
 
 #include "transcoder_application.h"
-#include "transcoder_gpu.h"
 #include "transcoder_private.h"
 
 #include <unistd.h>
@@ -46,14 +45,6 @@ bool TranscodeApplication::Start()
 	{
 		return false;
 	}
-	
-	if(_application_info.GetConfig().GetOutputProfiles().IsHardwareAcceleration() == true)
-	{
-		if (TranscodeGPU::GetInstance()->Initialize() == false)
-		{
-			logtw("There is no supported hardware accelerator");
-		}
-	}
 
 	return true;
 }
@@ -76,7 +67,7 @@ bool TranscodeApplication::OnStreamCreated(const std::shared_ptr<info::Stream> &
 {
 	std::unique_lock<std::mutex> lock(_mutex);
 
-	auto stream = std::make_shared<TranscoderStream>(_application_info, stream_info, this);
+	auto stream = TranscoderStream::Create(_application_info, stream_info, this);
 	if (stream == nullptr)
 	{
 		return false;
@@ -123,6 +114,7 @@ bool TranscodeApplication::OnStreamPrepared(const std::shared_ptr<info::Stream> 
 	}
 
 	auto stream = stream_bucket->second;
+
 	if (stream->Prepare(stream_info) == false)
 	{
 		return false;

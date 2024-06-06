@@ -15,9 +15,10 @@
 
 #include "config/config_manager.h"
 #include "transcoder.h"
+#include "transcoder_gpu.h"
 #include "transcoder_private.h"
 
-std::shared_ptr<Transcoder> Transcoder::Create(std::shared_ptr<MediaRouteInterface> router)
+std::shared_ptr<Transcoder> Transcoder::Create(std::shared_ptr<MediaRouterInterface> router)
 {
 	auto transcoder = std::make_shared<Transcoder>(router);
 	if (!transcoder->Start())
@@ -28,7 +29,7 @@ std::shared_ptr<Transcoder> Transcoder::Create(std::shared_ptr<MediaRouteInterfa
 	return transcoder;
 }
 
-Transcoder::Transcoder(std::shared_ptr<MediaRouteInterface> router)
+Transcoder::Transcoder(std::shared_ptr<MediaRouterInterface> router)
 {
 	_router = std::move(router);
 }
@@ -38,6 +39,8 @@ bool Transcoder::Start()
 	logtd("Transcoder has been started");
 
 	SetModuleAvailable(true);
+
+	TranscodeGPU::GetInstance()->Initialize();
 
 	return true;
 }

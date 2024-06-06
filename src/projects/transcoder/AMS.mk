@@ -5,6 +5,7 @@ LOCAL_STATIC_LIBRARIES := \
 	application \
 	ovlibrary \
 	managed_queue \
+	transcode_webhook
 
 $(call add_pkg_config,libavformat)
 $(call add_pkg_config,libavfilter)
@@ -15,14 +16,14 @@ $(call add_pkg_config,libavutil)
 $(call add_pkg_config,vpx)
 $(call add_pkg_config,opus)
 
-# Enable Xilinx Media SDK
+# Enable Xilinx Media Accelerator
 ifeq ($(call chk_pkg_exist,libxma2api),0)
 $(call add_pkg_config,libxma2api)
 $(call add_pkg_config,libxma2plugin)
 $(call add_pkg_config,xvbm)
 $(call add_pkg_config,libxrm)
-PROJECT_CXXFLAGS += -DXMA_ENABLED
 endif
+
 
 LOCAL_TARGET := transcoder
 

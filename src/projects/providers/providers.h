@@ -15,3 +15,5 @@
 #include "./rtspc/rtspc_provider.h"
 #include "./webrtc/webrtc_provider.h"
 #include "./file/file_provider.h"
+#include "./scheduled/scheduled_provider.h"
+#include "./multiplex/multiplex_provider.h"

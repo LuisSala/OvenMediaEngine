@@ -4,7 +4,7 @@ include $(DEFAULT_VARIABLES)
 LOCAL_STATIC_LIBRARIES := \
 	webrtc_publisher \
 	llhls_publisher \
-	segment_publishers \
+	hls_publisher \
 	ovt_publisher \
 	file_publisher \
 	mpegtspush_publisher \
@@ -17,6 +17,8 @@ LOCAL_STATIC_LIBRARIES := \
 	mpegts_provider \
 	rtspc_provider \
 	webrtc_provider \
+	scheduled_provider \
+	multiplex_provider \
 	transcoder \
 	rtc_signalling \
 	whip \
@@ -25,7 +27,6 @@ LOCAL_STATIC_LIBRARIES := \
 	api_server \
 	json_serdes \
 	bitstream \
-	containers \
 	http \
 	dtls_srtp \
 	rtp_rtcp \
@@ -63,10 +64,7 @@ LOCAL_PREBUILT_LIBRARIES := \
 
 LOCAL_LDFLAGS := -lpthread -luuid
 
-ifeq ($(shell echo $${OSTYPE}),linux-musl) 
-# For alpine linux
-LOCAL_LDFLAGS += -lexecinfo
-endif
+
 
 $(call add_pkg_config,srt)
 $(call add_pkg_config,libavformat)
@@ -82,14 +80,40 @@ $(call add_pkg_config,libsrtp2)
 $(call add_pkg_config,libpcre2-8)
 $(call add_pkg_config,hiredis)
 
+ifeq ($(call chk_pkg_exist,ffnvcodec),0)
+$(call add_pkg_config,ffnvcodec)
+endif
+
 # Enable Xilinx Media SDK
 ifeq ($(call chk_pkg_exist,libxma2api),0)
-$(info $(ANSI_YELLOW)- Xilinx Media SDK is enabled.$(ANSI_RESET))
 $(call add_pkg_config,libxma2api)
 $(call add_pkg_config,libxma2plugin)
 $(call add_pkg_config,xvbm)
 $(call add_pkg_config,libxrm)
+HWACCELS_XMA_ENABLED := true
+PROJECT_CXXFLAGS += -DHWACCELS_XMA_ENABLED
 endif
+
+# Enable NVidia Accelerator
+ifeq ($(call chk_lib_exist,libcuda.so), 0) 
+ifeq ($(call chk_lib_exist,libnvidia-ml.so), 0)
+HWACCELS_NVIDIA_ENABLED := true
+LOCAL_LDFLAGS += -L/usr/local/cuda/lib64 -lcuda -lnvidia-ml
+PROJECT_CXXFLAGS += -I/usr/local/cuda/include -DHWACCELS_NVIDIA_ENABLED 
+endif
+endif
+
+# Enable Netint Accelerator
+ifeq ($(call chk_lib_exist,libxcoder_logan.so), 0)
+$(info $(ANSI_YELLOW)- Netint Accelerator is enabled$(ANSI_RESET))
+PROJECT_CXXFLAGS += -DHWACCELS_NILOGAN_ENABLED
+endif
+
+ifeq ($(shell echo $${OSTYPE}),linux-musl) 
+# For alpine linux
+LOCAL_LDFLAGS += -lexecinfo
+endif
+
 
 # Enable jemalloc 
 ifeq ($(MAKECMDGOALS),release)

@@ -4,12 +4,12 @@ Apple supports Low-Latency HLS (LLHLS), which enables low-latency video streamin
 
 LLHLS is an extension of HLS, so legacy HLS players can play LLHLS streams. However, the legacy HLS player plays the stream without using the low-latency function.
 
-| Title     | Descriptions              |
-| --------- | ------------------------- |
-| Delivery  | <p>HTTP/1.1<br>HTTP/2</p> |
-| Security  | TLS (HTTPS)               |
-| Container | fMP4                      |
-| Codecs    | <p>H.264<br>AAC</p>       |
+| Title     | Descriptions                    |
+| --------- | ------------------------------- |
+| Delivery  | <p>HTTP/1.1<br>HTTP/2</p>       |
+| Security  | TLS (HTTPS)                     |
+| Container | fMP4                            |
+| Codecs    | <p>H.264</p><p>H.265<br>AAC</p> |
 
 ## Configuration
 
@@ -58,7 +58,7 @@ To use LLHLS, you need to add the `<LLHLS>` elements to the `<Publishers>` in th
 | ChunkDuration   | Set the partial segment length to fractional seconds. This value affects low-latency HLS player. We recommend **0.2** seconds for this value.                                                                                              |
 | SegmentDuration | Set the length of the segment in seconds. Therefore, a shorter value allows the stream to start faster. However, a value that is too short will make legacy HLS players unstable. Apple recommends **6** seconds for this value.           |
 | SegmentCount    | The number of segments listed in the playlist. This value has little effect on LLHLS players, so use **10** as recommended by Apple. 5 is recommended for legacy HLS players. Do not set below 3. It can only be used for experimentation. |
-| CrossDomains    | Control the domain in which the player works through `<CorssDomain>`. For more information, please refer to the [CrossDomain](hls-mpeg-dash.md#crossdomain) section.                                                                       |
+| CrossDomains    | Control the domain in which the player works through `<CorssDomain>`. For more information, please refer to the [CrossDomain](broken-reference) section.                                                                                   |
 
 {% hint style="info" %}
 HTTP/2 outperforms HTTP/1.1, especially with LLHLS. Since all current browsers only support h2, HTTP/2 is supported only on TLS port. Therefore, it is highly recommended to use LLHLS on the TLS port.
@@ -198,3 +198,102 @@ The folder to output to. In the OutputPath you can use the macros shown in the t
 | ${S}          | Timezone                       |
 | ${z}          | UTC offset (ex: +0900)         |
 | ${ISO8601}    | Current time in ISO8601 format |
+
+## DRM (beta)
+
+OvenMediaEngine supports Widevine and Fairplay in LLHLS with simple setup since version 0.16.0.
+
+{% hint style="warning" %}
+Currently, DRM is only supported for H.264 and AAC codecs. Support for H.265 will be added soon.
+{% endhint %}
+
+To include DRM information in your LLHLS Publisher configuration, follow these steps. You can set the InfoFile path as either a relative path, starting from the directory where Server.xml is located, or as an absolute path.
+
+```
+<LLHLS>
+    <ChunkDuration>0.5</ChunkDuration>
+    <PartHoldBack>1.5</PartHoldBack>
+    <SegmentDuration>6</SegmentDuration>
+    <SegmentCount>10</SegmentCount>
+    <DRM>
+        <Enable>false</Enable>
+        <InfoFile>path/to/file.xml</InfoFile>
+    </DRM>
+    <CrossDomains>
+        <Url>*</Url>
+    </CrossDomains>
+</LLHLS>
+```
+
+The separation of the DRMInfoFile is designed to allow dynamic changes to the file. Any modifications to the DRMInfoFile will take effect when a new stream is generated.
+
+Here's how you should structure your DRM Info File:
+
+```
+<?xml version="1.0" encoding="UTF-8"?>
+
+<DRMInfo>
+    <DRM>
+        <Name>MultiDRM</Name>
+        <VirtualHostName>default</VirtualHostName>
+        <ApplicationName>app</ApplicationName>
+        <StreamName>stream*</StreamName> <!-- Can be a wildcard regular expression -->
+        <CencProtectScheme>cbcs</CencProtectScheme> <!-- Currently supports cbcs only -->
+        <KeyId>572543f964e34dc68ba9ba9ef91d4xxx</KeyId> <!-- Hexadecimal -->
+        <Key>16cf4232a86364b519e1982a27d90xxx</Key> <!-- Hexadecimal -->
+        <Iv>572547f914e34dc68ba9ba9ef91d4xxx</Iv> <!-- Hexadecimal -->
+        <Pssh>0000003f7073736800000000edef8ba979d64acea3c827dcd51d21ed0000001f1210572547f964e34dc68ba9ba9ef91d4c4a1a05657a64726d48f3c6899xxx</Pssh> <!-- Hexadecimal, for Widevine -->
+        <!-- Add Pssh for FairPlay if needed -->
+        <FairPlayKeyUrl>skd://fiarplay_key_url</FairPlayKeyUrl> <!-- FairPlay only -->
+    </DRM>
+    <DRM>
+        <Name>MultiDRM2</Name>
+        <VirtualHostName>default</VirtualHostName>
+        <ApplicationName>app2</ApplicationName>
+        <StreamName>stream*</StreamName> <!-- Can be a wildcard regular expression -->
+         ...........
+    </DRM>
+</DRMInfo>
+```
+
+Multiple `<DRM>` can be set. Specify the VirtualHost, Application, and StreamName where DRM should be applied. StreamName supports wildcard regular expressions.
+
+Currently, CencProtectScheme only supports "cbcs" since FairPlay also supports only cbcs. There may be limited prospects for adding other schemes in the near future.
+
+KeyId, Key, Iv and Pssh values are essential and should be provided by your DRM provider. FairPlayKeyUrl is only need for FairPlay and if you want to enable FairPlay to your stream, it is required. It will be also provided by your DRM provider.
+
+OvenPlayer now includes DRM-related options. Enable DRM and input the License URL. Your content is now securely protected.
+
+<figure><img src="../.gitbook/assets/image (30).png" alt=""><figcaption></figcaption></figure>
+
+### Pallycon DRM
+
+{% hint style="danger" %}
+Pallycon is no longer supported by the Open Source project and is only supported in the [Enterprise](https://ovenmediaengine-enterprise.gitbook.io/docs/getting-started/getting-started-with-ubuntu) version. For more information, see this [article](https://github.com/AirenSoft/OvenMediaEngine/discussions/1634).
+{% endhint %}
+
+OvenMediaEngine integrates with [Pallycon](https://pallycon.com/), allowing you to more easily apply DRM to LLHLS streams.
+
+To integrate Pallycon, configure the DRMInfo.xml file as follows.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<DRMInfo>
+    <DRM>
+        <Name>Pallycon</Name>
+        <VirtualHostName>default</VirtualHostName>
+        <ApplicationName>app</ApplicationName>
+        <StreamName>stream*</StreamName> <!-- Can be wildcard regular expression -->
+
+        <DRMProvider>Pallycon</DRMProvider> <!-- Manual(default), Pallycon -->
+        <DRMSystem>Widevine,Fairplay</DRMSystem> <!-- Widevine, Fairplay -->
+        <CencProtectScheme>cbcs</CencProtectScheme> <!-- cbcs, cenc -->
+        <ContentId>${VHostName}_${AppName}_${StreamName}</ContentId>
+        <KMSUrl>https://kms.pallycon.com/v2/cpix/pallycon/getKey/</KMSUrl>
+        <KMSToken>xxxx</KMSToken>
+    </DRM>
+</DRMInfo>
+```
+
+Set `DRMProvider`to Pallycon. Then, set the necessary information as shown in the example. `KMSUrl` and `KMSToken` are values provided by the Pallycon console. `ContentId` can be created using VHostName, AppName, and StreamName macros.

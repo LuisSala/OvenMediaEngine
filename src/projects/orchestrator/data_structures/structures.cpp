@@ -45,6 +45,7 @@ namespace ocst
 		persistent = origin_config.IsPersistent();
 		failback = origin_config.IsFailback();
 		strict_location = origin_config.IsStrictLocation();
+		ignore_rtcp_sr_timestamp = origin_config.IsRtcpSrTimestampIgnored();
 		relay = origin_config.IsRelay(&parsed);
 		if (parsed == false && scheme.UpperCaseString() == "OVT")
 		{
@@ -120,7 +121,7 @@ namespace ocst
 	}
 
 	//--------------------------------------------------------------------
-	// Implementation of MediaRouteApplicationObserver
+	// Implementation of MediaRouterApplicationObserver
 	//--------------------------------------------------------------------
 	// Temporarily used until Orchestrator takes stream management
 	bool Application::OnStreamCreated(const std::shared_ptr<info::Stream> &info)
@@ -203,7 +204,7 @@ namespace ocst
 
 	bool Application::OnStreamUpdated(const std::shared_ptr<info::Stream> &info)
 	{
-		return callback->OnStreamPrepared(app_info, info);
+		return callback->OnStreamUpdated(app_info, info);
 	}
 
 	bool Application::OnSendFrame(const std::shared_ptr<info::Stream> &info, const std::shared_ptr<MediaPacket> &packet)
@@ -212,7 +213,7 @@ namespace ocst
 		return true;
 	}
 
-	MediaRouteApplicationObserver::ObserverType Application::GetObserverType()
+	MediaRouterApplicationObserver::ObserverType Application::GetObserverType()
 	{
 		return ObserverType::Orchestrator;
 	}
